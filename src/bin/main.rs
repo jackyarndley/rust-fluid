@@ -9,12 +9,8 @@ fn main() {
     let mut time: f64 = 0.0;
     let mut iterations: usize = 0;
 
-    while time < 4.0 {
-        for i in 10..26 {
-            for j in 20..36 {
-                solver.add_source(j, i, 0.0, 3.0, 1.0);
-            }
-        }
+    while time < 1.0 {
+        solver.add_source2(20, 20, 40, 40, 2.0, 2.0, 1.0);
 
         solver.update(0.005);
 

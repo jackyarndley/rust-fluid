@@ -1,4 +1,5 @@
 use crate::grid::Grid;
+use crate::functions::*;
 use std::mem::swap;
 
 pub struct FluidSolver {
@@ -40,6 +41,43 @@ impl FluidSolver {
         *self.x_velocity_src.at_mut(row, column) = velocity_x;
         *self.y_velocity_src.at_mut(row, column) = velocity_y;
         *self.density_src.at_mut(row, column) = density;
+    }
+
+    pub fn add_source2(&mut self, row1: usize, column1: usize, row2: usize, column2: usize, velocity_x: f64, velocity_y: f64, density: f64) {
+        let f_row1 = (row1 as f64) / (self.rows as f64);
+        let f_row2 = (row2 as f64) / (self.rows as f64);
+        let f_column1 = (column1 as f64) / (self.columns as f64);
+        let f_column2 = (column2 as f64) / (self.columns as f64);
+
+        // println!("{} {} {} {}", f_row1, f_row2, f_column1, f_column2);
+
+        for row in row1..row2 {
+            for column in column1..column2 {
+
+                let length = length(
+                    (2.0 * (column as f64 + 0.5) * self.dx - (f_column1 + f_column2)) / (f_column2 - f_column1),
+                    (2.0 * (row as f64 + 0.5) * self.dx - (f_row1 + f_row2)) / (f_row2 - f_row1)
+                );
+                // println!("length {}", length);
+
+                let vi_velocity_x = cubic_pulse(length) * velocity_x;
+                let vi_velocity_y = cubic_pulse(length) * velocity_y;
+                let vi_density = cubic_pulse(length) * density;
+
+                if self.x_velocity_src.at(row, column).abs() < vi_velocity_x.abs() {
+                    *self.x_velocity_src.at_mut(row, column) = vi_velocity_x;
+                }
+
+                if self.y_velocity_src.at(row, column).abs() < vi_velocity_y.abs() {
+                    *self.y_velocity_src.at_mut(row, column) = vi_velocity_y;
+                }
+                // println!("density {}", vi_density);
+                if self.density_src.at(row, column).abs() < vi_density.abs() {
+                    // println!("density {}", vi_density);
+                    *self.density_src.at_mut(row, column) = vi_density;
+                }
+            }
+        }
     }
 
     pub fn update(&mut self, time_step: f64) {
@@ -161,9 +199,9 @@ impl FluidSolver {
                 let mut density_x = column as f64 + self.density_src.offset_x;
                 let mut density_y = row as f64 + self.density_src.offset_y;
 
-                self.euler(&mut density_x, &mut density_y, time_step);
+                self.runge_kutta3(&mut density_x, &mut density_y, time_step);
 
-                *self.density_dst.at_mut(row, column) = FluidSolver::lerp_grid(&self.density_src, density_x, density_y);
+                *self.density_dst.at_mut(row, column) = cerp_grid(&self.density_src, density_x, density_y);
             }
         }
 
@@ -173,9 +211,9 @@ impl FluidSolver {
                 let mut x_velocity_x = column as f64 + self.x_velocity_src.offset_x;
                 let mut x_velocity_y = row as f64 + self.x_velocity_src.offset_y;
 
-                self.euler(&mut x_velocity_x, &mut x_velocity_y, time_step);
+                self.runge_kutta3(&mut x_velocity_x, &mut x_velocity_y, time_step);
 
-                *self.x_velocity_dst.at_mut(row, column) = FluidSolver::lerp_grid(&self.x_velocity_src, x_velocity_x, x_velocity_y);
+                *self.x_velocity_dst.at_mut(row, column) = cerp_grid(&self.x_velocity_src, x_velocity_x, x_velocity_y);
             }
         }
 
@@ -185,54 +223,41 @@ impl FluidSolver {
                 let mut y_velocity_x = column as f64 + self.y_velocity_src.offset_x;
                 let mut y_velocity_y = row as f64 + self.y_velocity_src.offset_y;;
 
-                self.euler(&mut y_velocity_x, &mut y_velocity_y, time_step);
+                self.runge_kutta3(&mut y_velocity_x, &mut y_velocity_y, time_step);
 
-                *self.y_velocity_dst.at_mut(row, column) = FluidSolver::lerp_grid(&self.y_velocity_src, y_velocity_x, y_velocity_y);
+                *self.y_velocity_dst.at_mut(row, column) = cerp_grid(&self.y_velocity_src, y_velocity_x, y_velocity_y);
             }
         }
     }
 
-    fn euler(&mut self, x: &mut f64, y: &mut f64, time_step: f64) {
-        let x_velocity = FluidSolver::lerp_grid(&self.x_velocity_src, *x, *y) / self.dx;
-        let y_velocity = FluidSolver::lerp_grid(&self.y_velocity_src, *x, *y) / self.dx;
+//    fn euler(&mut self, x: &mut f64, y: &mut f64, time_step: f64) {
+//        let x_velocity = lerp_grid(&self.x_velocity_src, *x, *y) / self.dx;
+//        let y_velocity = lerp_grid(&self.y_velocity_src, *x, *y) / self.dx;
+//
+//        *x -= x_velocity * time_step;
+//        *y -= y_velocity * time_step;
+//    }
 
-        *x -= x_velocity * time_step;
-        *y -= y_velocity * time_step;
+    fn runge_kutta3(&mut self, x: &mut f64, y: &mut f64, time_step: f64) {
+        let x_velocity1 = lerp_grid(&self.x_velocity_src, *x, *y) / self.dx;
+        let y_velocity1 = lerp_grid(&self.y_velocity_src, *x, *y) / self.dx;
+
+        let mid_x = *x - 0.5 * time_step * x_velocity1;
+        let mid_y = *y - 0.5 * time_step * y_velocity1;
+
+        let x_velocity2 = lerp_grid(&self.x_velocity_src, mid_x, mid_y) / self.dx;
+        let y_velocity2 = lerp_grid(&self.y_velocity_src, mid_x, mid_y) / self.dx;
+
+        let last_x = *x - 0.75 * time_step * x_velocity2;
+        let last_y = *y - 0.75 * time_step * y_velocity2;
+
+        let x_velocity3 = lerp_grid(&self.x_velocity_src, last_x, last_y) / self.dx;
+        let y_velocity3 = lerp_grid(&self.y_velocity_src, last_x, last_y) / self.dx;
+
+        *x -= time_step * ((2.0/9.0) * x_velocity1 + (3.0/9.0) * x_velocity2 + (4.0/9.0) * x_velocity3);
+        *y -= time_step * ((2.0/9.0) * y_velocity1 + (3.0/9.0) * y_velocity2 + (4.0/9.0) * y_velocity3);
     }
 
-    fn lerp_grid(grid: &Grid, x: f64, y: f64) -> f64 {
-        let mut temp_x = x - grid.offset_x;
-        let mut temp_y = y - grid.offset_y;
-
-        if temp_x < 0.0 {
-            temp_x = 0.0;
-        } else if temp_x > (grid.columns as f64 - 1.001) {
-            temp_x = grid.columns as f64 - 1.001;
-        }
-
-        if temp_y < 0.0 {
-            temp_y = 0.0;
-        } else if temp_y > (grid.rows as f64 - 1.001) {
-            temp_y = grid.rows as f64 - 1.001;
-        }
-
-        let ix = temp_x as usize;
-        let iy = temp_y as usize;
-
-        temp_x -= ix as f64;
-        temp_y -= iy as f64;
-
-        let x00: f64 = grid.at(iy + 0, ix + 0);
-        let x10: f64 = grid.at(iy + 0, ix + 1);
-        let x01: f64 = grid.at(iy + 1, ix + 0);
-        let x11: f64 = grid.at(iy + 1, ix + 1);
-
-        FluidSolver::lerp(FluidSolver::lerp(x00, x10, temp_x), FluidSolver::lerp(x01, x11, temp_x), temp_y)
-    }
-
-    fn lerp(a: f64, b: f64, c: f64) -> f64 {
-        a * (1.0 - c) + b * c
-    }
 
     // Swaps src and dst grids
     fn swap_grid(&mut self) {
