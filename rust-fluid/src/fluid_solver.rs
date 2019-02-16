@@ -49,20 +49,24 @@ impl FluidSolver {
         }
     }
 
-    pub fn linear_solver(&mut self, f: LinearSolver) {
-        self.linear_solver = f
+    pub fn linear_solver(mut self, f: LinearSolver) -> Self {
+        self.linear_solver = f;
+        self
     }
 
-    pub fn integration(&mut self, f: Integration) {
-        self.integration = f
+    pub fn integration(mut self, f: fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64) -> Self {
+        self.integration = f;
+        self
     }
 
-    pub fn interpolation(&mut self, f: Interpolation) {
-        self.interpolation = f
+    pub fn interpolation(mut self, f: Interpolation) -> Self {
+        self.interpolation = f;
+        self
     }
 
-    pub fn advection(&mut self, f: Advection) {
-        self.advection = f
+    pub fn advection(mut self, f: fn(&mut Field, &Field, &Field, f64, f64, &Fn(f64, f64, &Field) -> f64, &Fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64)) -> Self {
+        self.advection = f;
+        self
     }
 
     fn calculate_divergence(&mut self) {
@@ -133,5 +137,16 @@ impl FluidSolver {
         swap(&mut self.x_velocity_src.field, &mut self.x_velocity_dst.field);
         swap(&mut self.y_velocity_src.field, &mut self.y_velocity_dst.field);
         swap(&mut self.density_src.field, &mut self.density_dst.field);
+    }
+
+    pub fn to_image(&self, buffer: &mut Vec<u8>) {
+        for i in 0..(self.rows * self.columns) {
+            let shade: u8 = (self.density_src.field[i]) as u8;
+
+            buffer[i * 4 + 0] = shade;
+            buffer[i * 4 + 1] = shade;
+            buffer[i * 4 + 2] = shade;
+            buffer[i * 4 + 3] = 0xFF; // Alpha is 255
+        }
     }
 }

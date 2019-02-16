@@ -23,8 +23,8 @@ pub fn bilinear_interpolate(mut x: f64, mut y: f64, field: &Field) -> f64 {
     x -= field.offset_x;
     y -= field.offset_y;
 
-    x = clamp(x, 0.0, field.columns as f64 - 1.0);
-    y = clamp(y, 0.0, field.rows as f64 - 1.0);
+    x = clamp(x, 0.0, field.columns as f64 - 2.0);
+    y = clamp(y, 0.0, field.rows as f64 - 2.0);
 
     let p1_x = x as usize;
     let p1_y = y as usize;

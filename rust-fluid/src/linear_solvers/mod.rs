@@ -9,7 +9,7 @@ pub fn gauss_siedel(pressure: &mut Field, divergence: &Field, fluid_density: f64
     let columns = pressure.columns;
     let scale = dt / (fluid_density * dx * dx);
 
-    for iteration in 0..limit {
+    for _iteration in 0..limit {
         let mut max_delta = 0.0;
 
         for row in 0..rows {
@@ -27,12 +27,12 @@ pub fn gauss_siedel(pressure: &mut Field, divergence: &Field, fluid_density: f64
                     off_diag -= scale * pressure.at(row - 1, column);
                 }
 
-                if column < columns {
+                if column < (columns - 1) {
                     diag += scale;
                     off_diag -= scale * pressure.at(row, column + 1);
                 }
 
-                if row < rows {
+                if row < (rows - 1) {
                     diag += scale;
                     off_diag -= scale * pressure.at(row + 1, column);
                 }
