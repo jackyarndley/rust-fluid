@@ -1,5 +1,5 @@
 [package]
-name = "rust-fluid"
+name = "rust_fluid"
 version = "0.1.0"
 authors = ["jackyarndley <34801340+jackyarndley@users.noreply.github.com>"]
 edition = "2018"
