@@ -44,7 +44,7 @@ pub fn cubic_interpolate(a: f64, b: f64, c: f64, d: f64, x: f64) -> f64 {
         c * (0.0 + 0.5 * x + 2.0 * x_squared - 1.5 * x_cubed) +
         d * (0.0 + 0.0 * x - 0.5 * x_squared + 0.5 * x_cubed);
 
-    min(max(t, min_value), max_value)
+    clamp(t, min_value, max_value)
 }
 
 pub fn empty(_: f64, _: f64, _: &Field) -> f64 {
@@ -78,12 +78,12 @@ pub fn bicubic_interpolate(mut x: f64, mut y: f64, field: &Field) -> f64 {
     let p1_x = x.trunc() as usize;
     let p1_y = y.trunc() as usize;
 
-    let x0 = max(p1_x - 1, 0);
+    let x0 = max(p1_x as isize - 1, 0) as usize;
     let x1 = p1_x;
     let x2 = p1_x + 1;
     let x3 = min(p1_x + 2, field.columns - 1);
 
-    let y0 = max(p1_y - 1, 0);
+    let y0 = max(p1_y as isize - 1, 0) as usize;
     let y1 = p1_y;
     let y2 = p1_y + 1;
     let y3 = min(p1_y + 2, field.rows - 1);
