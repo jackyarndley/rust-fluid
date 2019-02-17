@@ -54,7 +54,7 @@ impl FluidSolver {
         self
     }
 
-    pub fn integration(mut self, f: fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64) -> Self {
+    pub fn integration(mut self, f: Integration) -> Self {
         self.integration = f;
         self
     }
@@ -64,11 +64,12 @@ impl FluidSolver {
         self
     }
 
-    pub fn advection(mut self, f: fn(&mut Field, &Field, &Field, f64, f64, &Fn(f64, f64, &Field) -> f64, &Fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64)) -> Self {
+    pub fn advection(mut self, f: Advection) -> Self {
         self.advection = f;
         self
     }
 
+    // checked
     fn calculate_divergence(&mut self) {
         for row in 0..self.rows {
             for column in 0..self.columns {
@@ -78,11 +79,12 @@ impl FluidSolver {
                 let y_velocity1 = self.y_velocity_src.at(row, column);
                 let y_velocity2 = self.y_velocity_src.at(row + 1, column);
 
-                *self.divergence.at_mut(row, column) = - (x_velocity2 - x_velocity1 + y_velocity2 - y_velocity1) / self.dx;
+                *self.divergence.at_mut(row, column) = -1.0 * (x_velocity2 - x_velocity1 + y_velocity2 - y_velocity1) / self.dx;
             }
         }
     }
 
+    // checked
     fn solve_pressure(&mut self) {
         (self.linear_solver)(&mut self.pressure, &self.divergence, self.fluid_density, self.dt, self.dx, 600);
     }
@@ -121,9 +123,9 @@ impl FluidSolver {
     }
 
     fn advect(&mut self) {
-        (self.advection)(&mut self.x_velocity_dst, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
-        (self.advection)(&mut self.y_velocity_dst, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
-        (self.advection)(&mut self.density_dst, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
+        (self.advection)(&mut self.x_velocity_dst, &self.x_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
+        (self.advection)(&mut self.y_velocity_dst, &self.y_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
+        (self.advection)(&mut self.density_dst, &self.density_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
         self.swap();
     }
 
@@ -141,7 +143,7 @@ impl FluidSolver {
 
     pub fn to_image(&self, buffer: &mut Vec<u8>) {
         for i in 0..(self.rows * self.columns) {
-            let shade: u8 = (self.density_src.field[i]) as u8;
+            let shade: u8 = (self.density_src.field[i] * 255.0 / 2.0) as u8;
 
             buffer[i * 4 + 0] = shade;
             buffer[i * 4 + 1] = shade;

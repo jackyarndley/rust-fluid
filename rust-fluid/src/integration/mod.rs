@@ -4,7 +4,7 @@ pub fn empty(_: f64, _: f64, _: &Fn(f64, f64) -> f64, _: f64) -> f64 {
     0.0
 }
 
-pub fn euler(t: f64, y: f64, f: &IntegrableFunction, dt: f64) -> f64 {
+pub fn euler(t: f64, y: f64, f: &Fn(f64, f64) -> f64, dt: f64) -> f64 {
     y + f(t, y) * dt
 }
 
