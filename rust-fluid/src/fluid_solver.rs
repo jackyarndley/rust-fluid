@@ -95,7 +95,7 @@ impl FluidSolver {
 
     // Solves and mutates pressure array based on divergence, passed to linear solver function
     fn solve_pressure(&mut self) {
-        (self.linear_solver)(&mut self.pressure, &self.divergence, self.fluid_density, self.dt, self.dx, 600);
+        (self.linear_solver)(&mut self.pressure, &self.divergence, self.fluid_density, self.dt, self.dx, 100);
     }
 
     // Applies computed pressure field to the xy velocity vector field
@@ -135,9 +135,11 @@ impl FluidSolver {
 
     // Advection method moves density scalar field through velocity vector field to produce output
     fn advect(&mut self) {
-        (self.advection)(&mut self.x_velocity_dst, &self.x_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
-        (self.advection)(&mut self.y_velocity_dst, &self.y_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
-        (self.advection)(&mut self.density_dst, &self.density_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
+        // TODO need to set up two different interpolation methods
+        let interpolation = interpolation::bilinear_interpolate;
+        (self.advection)(&mut self.x_velocity_dst, &self.x_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &interpolation, &self.integration);
+        (self.advection)(&mut self.y_velocity_dst, &self.y_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &interpolation, &self.integration);
+        (self.advection)(&mut self.density_dst, &self.density_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &interpolation, &self.integration);
         self.swap();
     }
 
