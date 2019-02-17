@@ -6,6 +6,7 @@ use crate::interpolation;
 use crate::advection;
 use std::mem::swap;
 
+// FluidSolver struct containing src and dst buffers and simulation details
 pub struct FluidSolver {
     pub x_velocity_src: Field,
     pub x_velocity_dst: Field,
@@ -27,6 +28,7 @@ pub struct FluidSolver {
 }
 
 impl FluidSolver {
+    // Creates a new FluidSolver. x_velocity has one more column, while y_velocity has 1 more row
     pub fn new(rows: usize, columns: usize, dt: f64, dx: f64, fluid_density: f64) -> FluidSolver {
         FluidSolver {
             x_velocity_src: Field::new(rows, columns + 1, 0.0, 0.5),
@@ -49,46 +51,54 @@ impl FluidSolver {
         }
     }
 
+    // Sets the linear solver used in the simulation
     pub fn linear_solver(mut self, f: LinearSolver) -> Self {
         self.linear_solver = f;
         self
     }
 
+    // Sets the integration method used in the simulation
     pub fn integration(mut self, f: Integration) -> Self {
         self.integration = f;
         self
     }
 
+    // Sets the interpolation method used in the simulation
     pub fn interpolation(mut self, f: Interpolation) -> Self {
         self.interpolation = f;
         self
     }
 
+    // Sets the advection method used in the simulation
     pub fn advection(mut self, f: Advection) -> Self {
         self.advection = f;
         self
     }
 
-    // checked
+    // Calculates the divergence of the xy vector field into the divergence scalar field
     fn calculate_divergence(&mut self) {
         for row in 0..self.rows {
             for column in 0..self.columns {
+                // Get x and x+1 velocities
                 let x_velocity1 = self.x_velocity_src.at(row, column);
                 let x_velocity2 = self.x_velocity_src.at(row, column + 1);
 
+                // Get y and y+1 velocities
                 let y_velocity1 = self.y_velocity_src.at(row, column);
                 let y_velocity2 = self.y_velocity_src.at(row + 1, column);
 
+                // For fluid simulation case divergence is negative
                 *self.divergence.at_mut(row, column) = -1.0 * (x_velocity2 - x_velocity1 + y_velocity2 - y_velocity1) / self.dx;
             }
         }
     }
 
-    // checked
+    // Solves and mutates pressure array based on divergence, passed to linear solver function
     fn solve_pressure(&mut self) {
         (self.linear_solver)(&mut self.pressure, &self.divergence, self.fluid_density, self.dt, self.dx, 600);
     }
 
+    // Applies computed pressure field to the xy velocity vector field
     fn apply_pressure(&mut self) {
         let scale = self.dt / (self.fluid_density * self.dx);
 
@@ -102,6 +112,7 @@ impl FluidSolver {
         }
     }
 
+    // Sets boundaries of simulation by setting xy velocities at boundaries to 0
     fn set_boundaries(&mut self) {
         for row in 0..self.rows {
             *self.x_velocity_src.at_mut(row, 0) = 0.0;
@@ -114,7 +125,7 @@ impl FluidSolver {
         }
     }
 
-
+    // Projection method implements each step of the calculation
     fn project(&mut self) {
         self.calculate_divergence();
         self.solve_pressure();
@@ -122,6 +133,7 @@ impl FluidSolver {
         self.set_boundaries();
     }
 
+    // Advection method moves density scalar field through velocity vector field to produce output
     fn advect(&mut self) {
         (self.advection)(&mut self.x_velocity_dst, &self.x_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
         (self.advection)(&mut self.y_velocity_dst, &self.y_velocity_src, &self.x_velocity_src, &self.y_velocity_src, self.dt, self.dx, &self.interpolation, &self.integration);
@@ -129,6 +141,7 @@ impl FluidSolver {
         self.swap();
     }
 
+    // Produces the next frame of the simulation by projecting then advecting
     pub fn solve(&mut self) {
         self.project();
         self.advect();
@@ -141,6 +154,7 @@ impl FluidSolver {
         swap(&mut self.density_src.field, &mut self.density_dst.field);
     }
 
+    // Basic function to convert density_src array into an image buffer
     pub fn to_image(&self, buffer: &mut Vec<u8>) {
         for i in 0..(self.rows * self.columns) {
             let shade: u8 = (self.density_src.field[i] * 255.0 / 2.0) as u8;
