@@ -111,6 +111,8 @@ impl FluidSolver {
         let scale = self.dt / (self.fluid_density * self.dx * self.dx);
 
         self.a_diag.field = vec![0.0; self.rows * self.columns];
+        self.a_plus_x.field = vec![0.0; self.rows * self.columns];
+        self.a_plus_y.field = vec![0.0; self.rows * self.columns];
 
         for y in 0..self.rows {
             for x in 0..self.columns {
@@ -290,6 +292,7 @@ impl FluidSolver {
 
     // Projection method implements each step of the calculation
     fn project(&mut self) {
+        self.set_boundaries();
         self.calculate_rhs();
         self.build_pressure_matrix();
         self.build_preconditioner();
