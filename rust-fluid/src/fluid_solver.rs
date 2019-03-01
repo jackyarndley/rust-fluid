@@ -5,6 +5,8 @@ use crate::integration;
 use crate::interpolation;
 use crate::advection;
 use std::mem::swap;
+use crate::interpolation::max;
+use crate::field::Vector2D;
 
 // FluidSolver struct containing src and dst buffers and simulation details
 pub struct FluidSolver {
@@ -14,8 +16,14 @@ pub struct FluidSolver {
     pub y_velocity_dst: Field,
     pub density_src:    Field,
     pub density_dst:    Field,
-    pub pressure:       Field,
-    pub divergence:     Field,
+    pub p:       Vector2D,
+    pub r:     Vector2D,
+    pub z:              Vector2D,
+    pub s:              Vector2D,
+    pub pre_con:        Vector2D,
+    pub a_diag:         Vector2D,
+    pub a_plus_x:       Vector2D,
+    pub a_plus_y:       Vector2D,
     pub rows:           usize,
     pub columns:        usize,
     dt:                 f64,
@@ -37,8 +45,14 @@ impl FluidSolver {
             y_velocity_dst: Field::new(rows + 1, columns, 0.5, 0.0),
             density_src:    Field::new(rows, columns, 0.5, 0.5),
             density_dst:    Field::new(rows, columns, 0.5, 0.5),
-            pressure:       Field::new(rows, columns, 0.5, 0.5),
-            divergence:     Field::new(rows, columns, 0.5, 0.5),
+            p:              Vector2D::new(rows, columns),
+            r:              Vector2D::new(rows, columns),
+            z:              Vector2D::new(rows, columns),
+            s:              Vector2D::new(rows, columns),
+            pre_con:        Vector2D::new(rows, columns),
+            a_diag:         Vector2D::new(rows, columns),
+            a_plus_x:       Vector2D::new(rows, columns),
+            a_plus_y:       Vector2D::new(rows, columns),
             rows,
             columns,
             dt,
@@ -76,7 +90,7 @@ impl FluidSolver {
     }
 
     // Calculates the divergence of the xy vector field into the divergence scalar field
-    fn calculate_divergence(&mut self) {
+    fn calculate_rhs(&mut self) {
         for row in 0..self.rows {
             for column in 0..self.columns {
                 // Get x and x+1 velocities
@@ -88,15 +102,163 @@ impl FluidSolver {
                 let y_velocity2 = self.y_velocity_src.at(row + 1, column);
 
                 // For fluid simulation case divergence is negative
-                *self.divergence.at_mut(row, column) = -1.0 * (x_velocity2 - x_velocity1 + y_velocity2 - y_velocity1) / self.dx;
+                *self.r.at_mut(row, column) = -1.0 * (x_velocity2 - x_velocity1 + y_velocity2 - y_velocity1) / self.dx;
             }
         }
     }
 
-    // Solves and mutates pressure array based on divergence, passed to linear solver function
-    fn solve_pressure(&mut self) {
-        (self.linear_solver)(&mut self.pressure, &self.divergence, self.fluid_density, self.dt, self.dx, 100);
+    fn build_pressure_matrix(&mut self) {
+        let scale = self.dt / (self.fluid_density * self.dx * self.dx);
+
+        self.a_diag.field = vec![0.0; self.rows * self.columns];
+
+        for y in 0..self.rows {
+            for x in 0..self.columns {
+                if x < (self.columns - 1) {
+                    *self.a_diag.at_mut(y, x) += scale;
+                    *self.a_diag.at_mut(y, x + 1) += scale;
+                    *self.a_plus_x.at_mut(y, x) = -scale;
+                } else {
+                    *self.a_plus_x.at_mut(y, x) = 0.0;
+                }
+
+                if y < (self.rows - 1) {
+                    *self.a_diag.at_mut(y, x) += scale;
+                    *self.a_diag.at_mut(y + 1, x) += scale;
+                    *self.a_plus_y.at_mut(y, x) = -scale;
+                } else {
+                    *self.a_plus_y.at_mut(y, x) = 0.0;
+                }
+            }
+        }
+
+
     }
+
+    fn build_preconditioner(&mut self) {
+        let tau = 0.97;
+
+        for y in 0..self.rows {
+            for x in 0..self.columns {
+                let mut e = self.a_diag.at(y, x);
+
+                if x > 0 {
+                    let px = self.a_plus_x.at(y, x - 1) * self.pre_con.at(y, x - 1);
+                    let py = self.a_plus_y.at(y, x - 1) * self.pre_con.at(y, x - 1);
+                    e -= px * px + tau * px * py;
+                }
+
+                if y > 0 {
+                    let px = self.a_plus_x.at(y - 1, x) * self.pre_con.at(y - 1, x);
+                    let py = self.a_plus_y.at(y - 1, x) * self.pre_con.at(y - 1, x);
+                    e -= py * py + tau * px * py;
+                }
+
+
+
+                *self.pre_con.at_mut(y, x) = 1.0 / ((e + 1e-30).sqrt());
+            }
+        }
+    }
+
+    fn apply_preconditioner(dst: &mut Vector2D, a: &Vector2D, a_plus_x: &Vector2D, a_plus_y: &Vector2D, pre_con: &Vector2D) {
+        for y in 0..a.rows {
+            for x in 0..a.columns {
+                let mut t = a.at(y, x);
+
+                if x > 0 {
+                    t -= a_plus_x.at(y, x - 1) * pre_con.at(y, x - 1) * dst.at(y, x - 1);
+                }
+
+                if y > 0 {
+                    t -= a_plus_y.at(y - 1, x) * pre_con.at(y - 1, x) * dst.at(y - 1, x);
+                }
+
+                *dst.at_mut(y, x) = t * pre_con.at(y, x);
+            }
+        }
+
+        for y in (0..a.rows).rev() {
+            for x in (0..a.columns).rev() {
+                let mut t = dst.at(y, x);
+
+                if x < (a.columns - 1) {
+                    t -= a_plus_x.at(y, x) * pre_con.at(y, x) * dst.at(y, x + 1);
+                }
+
+                if y < (a.rows - 1) {
+                    t -= a_plus_y.at(y, x) * pre_con.at(y, x) * dst.at(y + 1, x);
+                }
+
+                *dst.at_mut(y, x) = t * pre_con.at(y, x);
+            }
+        }
+    }
+
+    fn dot_product(a: &Vector2D, b: &Vector2D) -> f64 {
+        let mut result = 0.0;
+        for y in 0..a.rows {
+            for x in 0..a.columns {
+                result += a.at(y, x) * b.at(y, x);
+            }
+        }
+        result
+    }
+
+    // Multiplies pressure matrix with vector b and stores in dst
+    fn matrix_vector_product(dst: &mut Vector2D, b: &Vector2D, a_plus_x: &Vector2D, a_plus_y: &Vector2D, a_diag: &Vector2D) {
+        for y in 0..dst.rows {
+            for x in 0..dst.columns {
+                let mut t = a_diag.at(y, x) * b.at(y, x);
+
+                if x > 0 {
+                    t += a_plus_x.at(y, x - 1) * b.at(y, x - 1);
+                }
+                if y > 0 {
+                    t += a_plus_y.at(y - 1, x) * b.at(y - 1, x);
+                }
+                if x < (dst.columns - 1) {
+                    t += a_plus_x.at(y, x) * b.at(y, x + 1);
+                }
+                if y < (dst.rows - 1) {
+                    t += a_plus_y.at(y, x) * b.at(y + 1, x);
+                }
+
+                *dst.at_mut(y, x) = t;
+            }
+        }
+    }
+
+    fn scaled_add1(dst: &mut Vector2D, b: &Vector2D, s: f64) {
+        for y in 0..dst.rows {
+            for x in 0..dst.columns {
+                *dst.at_mut(y, x) += b.at(y, x) * s;
+            }
+        }
+    }
+
+    fn scaled_add2(dst: &mut Vector2D, a: &Vector2D,  s: f64) {
+        for y in 0..dst.rows {
+            for x in 0..dst.columns {
+                *dst.at_mut(y, x) = a.at(y, x) + dst.at(y, x) * s;
+            }
+        }
+    }
+
+    fn infinity_norm(a: &Vector2D) -> f64 {
+        let mut max_a = 0.0;
+        for y in 0..a.rows {
+            for x in 0..a.columns {
+                max_a = max(max_a, (a.at(y, x)).abs());
+            }
+        }
+        max_a
+    }
+
+    // Solves and mutates pressure array based on divergence, passed to linear solver function
+//    fn solve_pressure(&mut self) {
+//        (self.linear_solver)(&mut self.pressure, &self.r, self.fluid_density, self.dt, self.dx, 100);
+//    }
 
     // Applies computed pressure field to the xy velocity vector field
     fn apply_pressure(&mut self) {
@@ -104,10 +266,10 @@ impl FluidSolver {
 
         for row in 0..self.rows {
             for column in 0..self.columns {
-                *self.x_velocity_src.at_mut(row, column) -= scale * self.pressure.at(row, column);
-                *self.x_velocity_src.at_mut(row, column + 1) += scale * self.pressure.at(row, column);
-                *self.y_velocity_src.at_mut(row, column) -= scale * self.pressure.at(row, column);
-                *self.y_velocity_src.at_mut(row + 1, column) += scale * self.pressure.at(row, column);
+                *self.x_velocity_src.at_mut(row, column) -= scale * self.p.at(row, column);
+                *self.x_velocity_src.at_mut(row, column + 1) += scale * self.p.at(row, column);
+                *self.y_velocity_src.at_mut(row, column) -= scale * self.p.at(row, column);
+                *self.y_velocity_src.at_mut(row + 1, column) += scale * self.p.at(row, column);
             }
         }
     }
@@ -125,11 +287,58 @@ impl FluidSolver {
         }
     }
 
+
     // Projection method implements each step of the calculation
     fn project(&mut self) {
-        self.calculate_divergence();
-        self.solve_pressure();
+        self.calculate_rhs();
+        self.build_pressure_matrix();
+        self.build_preconditioner();
+
+        // Set initial guess of zeroes
+        self.p.field = vec![0.0; self.rows * self.columns];
+
+
+        // Apply preconditioner to z
+        FluidSolver::apply_preconditioner(&mut self.z, &self.r, &self.a_plus_x, &self.a_plus_y, &self.pre_con);
+
+        self.s.field = (self.z.field).clone();
+
+        let mut max_error = FluidSolver::infinity_norm(&self.r);
+
+        if max_error < 1e-5 {
+            return;
+        }
+
+        let mut sigma = FluidSolver::dot_product(&self.z, &self.r);
+
+        for iteration in 0..600 {
+            FluidSolver::matrix_vector_product(&mut self.z, &self.s, &self.a_plus_x, &self.a_plus_y, &self.a_diag);
+
+            let alpha = sigma / FluidSolver::dot_product(&self.z, &self.s);
+
+            FluidSolver::scaled_add1(&mut self.p, &self.s, alpha);
+            FluidSolver::scaled_add1(&mut self.r, &self.z, -alpha);
+
+            max_error = FluidSolver::infinity_norm(&self.r);
+
+            if max_error < 1e-5 {
+                println!("Exiting solver after {} iterations, maximum error is {}", iteration, max_error);
+                break;
+            }
+
+            FluidSolver::apply_preconditioner(&mut self.z, &self.r, &self.a_plus_x, &self.a_plus_y, &self.pre_con);
+
+            let sigma_new = FluidSolver::dot_product(&self.z, &self.r);
+            FluidSolver::scaled_add2(&mut self.s, &self.z, sigma_new / sigma);
+            sigma = sigma_new;
+
+            if iteration == 599 {
+                println!("Exceeded budget of {} iterations, maximum change was {}", 600, max_error);
+            }
+        }
+
         self.apply_pressure();
+
         self.set_boundaries();
     }
 
@@ -159,7 +368,7 @@ impl FluidSolver {
     // Basic function to convert density_src array into an image buffer
     pub fn to_image(&self, buffer: &mut Vec<u8>) {
         for i in 0..(self.rows * self.columns) {
-            let shade: u8 = (self.density_src.field[i] * 255.0 / 2.0) as u8;
+            let shade: u8 = (self.density_src.field[i] * 255.0 / 3.0) as u8;
 
             buffer[i * 4 + 0] = shade;
             buffer[i * 4 + 1] = shade;

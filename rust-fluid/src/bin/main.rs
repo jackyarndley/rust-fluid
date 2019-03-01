@@ -6,24 +6,28 @@ use rust_fluid::linear_solvers;
 
 
 fn main() {
-    let mut buffer = vec![0u8; 256 * 512 * 4];
+    let mut buffer = vec![0u8; 128 * 128 * 4];
 
-    let mut solver = FluidSolver::new(256, 512, 0.01, 1.0 / 8.0, 1.0)
+    let mut solver = FluidSolver::new(128, 128, 0.005, 1.0 / 128.0, 0.1)
         .interpolation(interpolation::bicubic_interpolate)
         .integration(integration::bogacki_shampine)
         .linear_solver(linear_solvers::gauss_siedel)
         .advection(advection::semi_lagrangian);
 
-    solver.y_velocity_src.add_inflow(80, 110, 112, 142, 75.0);
-    solver.density_src.add_inflow(80, 110, 112, 142, 2.0);
+    solver.y_velocity_src.add_inflow(58, 26, 77, 30, 1.0);
+    solver.density_src.add_inflow(58, 26, 77, 30, 3.0);
 
-    for iteration in 0..400 {
-        solver.solve();
+    for iteration in 0..1000 {
+        for i in 0..4 {
+            print!("Global iteration {}. ", 4 * iteration + i);
+            solver.solve();
 
-        solver.y_velocity_src.add_inflow(80, 110, 112, 142, 75.0);
-        solver.density_src.add_inflow(80, 110, 112, 142, 2.0);
+            solver.y_velocity_src.add_inflow(58, 26, 77, 30, 1.0);
+            solver.density_src.add_inflow(58, 26, 77, 30, 3.0);
+        }
+
 
         solver.to_image(&mut buffer);
-        lodepng::encode32_file(format!("output/{}.png", iteration), &buffer, 512, 256).unwrap();
+        lodepng::encode32_file(format!("output/{}.png", iteration), &buffer, 128, 128).unwrap();
     }
 }

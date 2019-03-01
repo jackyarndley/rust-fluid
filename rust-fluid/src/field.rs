@@ -8,6 +8,12 @@ pub struct Field {
     pub offset_y: f64
 }
 
+pub struct Vector2D {
+    pub field: Vec<f64>,
+    pub rows: usize,
+    pub columns: usize
+}
+
 impl Field {
     pub fn new(rows: usize, columns: usize, offset_x: f64, offset_y: f64) -> Field {
         Field {
@@ -40,7 +46,7 @@ impl Field {
 
     pub fn add_inflow(&mut self, ix0: usize, iy0: usize, ix1: usize, iy1: usize, value: f64) {
         for y in iy0..iy1 {
-            for x in ix0..iy1 {
+            for x in ix0..ix1 {
                 let l = Field::length(
                     (2.0 * (x as f64) - (ix0 + ix1) as f64) / ((ix1 - ix0) as f64),
                     (2.0 * (y as f64) - (iy0 + iy1) as f64) / ((iy1 - iy0) as f64)
@@ -53,5 +59,23 @@ impl Field {
                 }
             }
         }
+    }
+}
+
+impl Vector2D {
+    pub fn new(rows: usize, columns: usize) -> Vector2D {
+        Vector2D {
+            field: vec![0.0; rows * columns],
+            rows,
+            columns,
+        }
+    }
+
+    pub fn at(&self, row: usize, column: usize) -> f64 {
+        self.field[row * self.columns + column]
+    }
+
+    pub fn at_mut(&mut self, row: usize, column: usize) -> &mut f64 {
+        &mut self.field[row * self.columns + column]
     }
 }
