@@ -1,5 +1,5 @@
-use crate::util::field::Field;
-use crate::util::sparse::Sparse;
+use util::Field;
+use util::Sparse;
 
 pub type IntegrableFunction = Fn(f64, f64) -> f64;
 pub type Integration = fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64;

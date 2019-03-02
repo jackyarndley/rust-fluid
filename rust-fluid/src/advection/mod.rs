@@ -1,13 +1,11 @@
-use crate::util::field::Field;
-use crate::interpolation::bilinear_interpolate;
+use util::Field;
+use interpolation::bilinear_interpolate;
 
 pub fn empty(_: &mut Field, _: &Field, _: &Field, _: &Field, _: f64, _: f64, _: &Fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64) {
 
 }
 
 pub fn semi_lagrangian(field_dst: &mut Field, field_src: &Field, x_velocity: &Field, y_velocity: &Field, dt: f64, dx: f64, integration: &Fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64) {
-
-
     for row in 0..field_dst.rows {
         for column in 0..field_dst.columns {
             let x = column as f64 + field_dst.x_offset;

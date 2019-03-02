@@ -7,7 +7,7 @@ fn main() {
     let mut solver = FluidSolver::new(128, 128, 0.005, 1.0 / 128.0, 1.0)
         .interpolation(interpolation::bicubic_interpolate)
         .integration(integration::bogacki_shampine)
-        .linear_solver(linear_solvers::conjugate_gradient::conjugate_gradient)
+        .linear_solver(linear_solvers::conjugate_gradient)
         .advection(advection::semi_lagrangian);
 
     solver.u_velocity.add_inflow(20, 20, 40, 40, 2.0);

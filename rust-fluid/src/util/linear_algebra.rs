@@ -1,5 +1,4 @@
-use crate::util::sparse::Sparse;
-use crate::util::max;
+use util::{Sparse, max};
 
 pub fn dot_product(a: &Vec<f64>, b: &Vec<f64>) -> f64 {
     let mut result = 0.0;
