@@ -1,7 +1,6 @@
-pub mod field;
+pub mod advection;
+pub mod fluid_solver;
 pub mod integration;
 pub mod interpolation;
-pub mod types;
-pub mod fluid_solver;
 pub mod linear_solvers;
-pub mod advection;
+pub mod util;

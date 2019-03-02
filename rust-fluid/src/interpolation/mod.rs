@@ -1,51 +1,5 @@
-use crate::field::Field;
-
-// Clamps a value between two bounds
-pub fn clamp<T: PartialOrd>(value: T, lower: T, upper: T) -> T {
-    if value < lower {
-        lower
-    } else if value > upper {
-        upper
-    } else {
-        value
-    }
-}
-
-pub fn min<T: PartialOrd>(a: T, b: T) -> T {
-    if a < b {
-        a
-    } else {
-        b
-    }
-}
-
-pub fn max<T: PartialOrd>(a: T, b: T) -> T {
-    if a > b {
-        a
-    } else {
-        b
-    }
-}
-
-pub fn linear_interpolate(a: f64, b: f64, x: f64) -> f64 {
-    a * (1.0 - x) + b * x
-}
-
-pub fn cubic_interpolate(a: f64, b: f64, c: f64, d: f64, x: f64) -> f64 {
-    let x_squared = x * x;
-    let x_cubed = x_squared * x;
-
-    let min_value = min(a, min(b, min(c, d)));
-    let max_value = max(a, max(b, max(c, d)));
-
-    let t =
-        a * (0.0 + 0.5 * x + 1.0 * x_squared - 0.5 * x_cubed) +
-        b * (1.0 + 0.0 * x - 2.5 * x_squared + 1.5 * x_cubed) +
-        c * (0.0 + 0.5 * x + 2.0 * x_squared - 1.5 * x_cubed) +
-        d * (0.0 + 0.0 * x - 0.5 * x_squared + 0.5 * x_cubed);
-
-    clamp(t, min_value, max_value)
-}
+use crate::util::field::Field;
+use crate::util::{clamp, linear_interpolate, min, max, cubic_interpolate};
 
 pub fn empty(_: f64, _: f64, _: &Field) -> f64 {
     0.0
@@ -53,8 +7,8 @@ pub fn empty(_: f64, _: f64, _: &Field) -> f64 {
 
 // Bilinear interpolation takes 4 points surrounding a value and linearly interpolates their values
 pub fn bilinear_interpolate(mut x: f64, mut y: f64, field: &Field) -> f64 {
-    x = clamp(x - field.offset_x, 0.0, field.columns as f64 - 1.001);
-    y = clamp(y - field.offset_y, 0.0, field.rows as f64 - 1.001);
+    x = clamp(x - field.x_offset, 0.0, field.columns as f64 - 1.001);
+    y = clamp(y - field.y_offset, 0.0, field.rows as f64 - 1.001);
 
     let p1_x = x.trunc() as usize;
     let p1_y = y.trunc() as usize;
@@ -72,8 +26,8 @@ pub fn bilinear_interpolate(mut x: f64, mut y: f64, field: &Field) -> f64 {
 
 // Bicubic interpolation takes 16 points surrounding a value and cubic interpolates their values
 pub fn bicubic_interpolate(mut x: f64, mut y: f64, field: &Field) -> f64 {
-    x = clamp(x - field.offset_x, 0.0, field.columns as f64 - 1.001);
-    y = clamp(y - field.offset_y, 0.0, field.rows as f64 - 1.001);
+    x = clamp(x - field.x_offset, 0.0, field.columns as f64 - 1.001);
+    y = clamp(y - field.y_offset, 0.0, field.rows as f64 - 1.001);
 
     let p1_x = x.trunc() as usize;
     let p1_y = y.trunc() as usize;
