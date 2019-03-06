@@ -19,7 +19,6 @@ fn main() {
             print!("Global iteration {}. ", 4 * iteration + i);
             solver.solve();
 
-
             solver.u_velocity.add_inflow(20, 20, 40, 40, 2.0);
             solver.v_velocity.add_inflow(20, 20, 40, 40, 2.0);
             solver.density.add_inflow(20, 20, 40, 40, 2.0);

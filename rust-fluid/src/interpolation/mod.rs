@@ -1,4 +1,4 @@
-use util::{Field, clamp, min, max, linear_interpolate, cubic_interpolate};
+use crate::util::{Field, clamp, min, max, linear_interpolate, cubic_interpolate};
 
 pub fn empty(_: f64, _: f64, _: &Field) -> f64 {
     0.0

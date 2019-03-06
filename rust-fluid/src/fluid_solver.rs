@@ -1,11 +1,11 @@
-use util::{LinearSolver, Integration, Interpolation, Advection};
-use util::{Field, Sparse};
-use util::max;
+use crate::util::{LinearSolver, Integration, Interpolation, Advection};
+use crate::util::{Field, Sparse};
+use crate::util::max;
 use std::mem::swap;
-use linear_solvers;
-use integration;
-use interpolation;
-use advection;
+use crate::linear_solvers;
+use crate::integration;
+use crate::interpolation;
+use crate::advection;
 
 pub struct FluidSolver {
     pub u_velocity:     Field,
