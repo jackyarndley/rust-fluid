@@ -35,3 +35,11 @@ pub fn max<T: PartialOrd>(a: T, b: T) -> T {
         b
     }
 }
+
+pub fn rotate(a: &mut f64, b: &mut f64, phi: f64) {
+    let temp_a = *a;
+    let temp_b = *b;
+
+    *a = phi.cos() * temp_a + phi.sin() * temp_b;
+    *b = phi.cos() * temp_a - phi.sin() * temp_b;
+}
