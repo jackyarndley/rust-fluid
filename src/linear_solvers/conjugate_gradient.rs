@@ -53,7 +53,7 @@ fn build_preconditioner(preconditioner: &mut Vec<f64>, a: &Sparse, rows: usize, 
     }
 }
 
-fn apply_preconditioner(auxiliary: &mut Vec<f64>, residual: &Vec<f64>, a: &Sparse, preconditioner: &Vec<f64>, rows: usize, columns: usize) {
+fn apply_preconditioner(auxiliary: &mut Vec<f64>, residual: &[f64], a: &Sparse, preconditioner: &[f64], rows: usize, columns: usize) {
     for row in 0..rows {
         for column in 0..columns {
             let element = row * columns + column;

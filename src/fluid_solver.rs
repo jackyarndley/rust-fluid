@@ -1,6 +1,5 @@
 use crate::util::{LinearSolver, Integration, Interpolation, Advection};
 use crate::util::{Field, Sparse};
-use crate::util::max;
 use std::mem::swap;
 use crate::linear_solvers;
 use crate::integration;

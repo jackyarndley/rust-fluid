@@ -1,6 +1,6 @@
 use crate::util::{Sparse, max};
 
-pub fn dot_product(a: &Vec<f64>, b: &Vec<f64>) -> f64 {
+pub fn dot_product(a: &[f64], b: &[f64]) -> f64 {
     let mut result = 0.0;
     for element in 0..a.len() {
         result += a[element] * b[element];
@@ -9,7 +9,7 @@ pub fn dot_product(a: &Vec<f64>, b: &Vec<f64>) -> f64 {
 }
 
 // Multiplies pressure matrix with vector b and stores in dst
-pub fn matrix_vector_product(dst: &mut Vec<f64>, b: &Vec<f64>, a: &Sparse, rows: usize, columns: usize) {
+pub fn matrix_vector_product(dst: &mut Vec<f64>, b: &[f64], a: &Sparse, rows: usize, columns: usize) {
     for row in 0..rows {
         for column in 0..columns {
             let element = row * columns + column;
@@ -36,19 +36,19 @@ pub fn matrix_vector_product(dst: &mut Vec<f64>, b: &Vec<f64>, a: &Sparse, rows:
     }
 }
 
-pub fn scaled_add1(dst: &mut Vec<f64>, b: &Vec<f64>, s: f64) {
+pub fn scaled_add1(dst: &mut Vec<f64>, b: &[f64], s: f64) {
     for element in 0..dst.len() {
         dst[element] += b[element] * s;
     }
 }
 
-pub fn scaled_add2(dst: &mut Vec<f64>, a: &Vec<f64>,  s: f64) {
+pub fn scaled_add2(dst: &mut Vec<f64>, a: &[f64],  s: f64) {
     for element in 0..dst.len() {
         dst[element] = a[element] + dst[element] * s;
     }
 }
 
-pub fn infinity_norm(a: &Vec<f64>) -> f64 {
+pub fn infinity_norm(a: &[f64]) -> f64 {
     let mut max_a = 0.0;
     for element in a {
         max_a = max(max_a, element.abs());
