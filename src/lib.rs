@@ -1,6 +1,8 @@
-pub mod grid;
-pub mod solver;
-pub mod linear_solver;
+
+pub mod advection;
+pub mod fluid_solver;
 pub mod integration;
 pub mod interpolation;
-pub mod advection;
+pub mod linear_solvers;
+pub mod util;
+
