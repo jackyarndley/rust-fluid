@@ -28,4 +28,3 @@ fn main() {
 //        solver.to_image(&mut buffer);
 //        lodepng::encode32_file(format!("output/{}.png", iteration), &buffer, 128, 128).unwrap();
     }
-}

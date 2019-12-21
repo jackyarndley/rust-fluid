@@ -23,4 +23,3 @@ pub fn runge_kutta_4(t: f64, y: f64, f: &IntegrableFunction, dt: f64) -> f64 {
     let k4 = f(t + dt, y + k3 * dt);
 
     y + (k1 + 2.0 * k2 + 2.0 * k3 + k4) * dt / 6.0
-}

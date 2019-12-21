@@ -20,4 +20,3 @@ pub fn semi_lagrangian(field_dst: &mut Field, field_src: &Field, x_velocity: &Fi
             *field_dst.at_mut(row, column) = bilinear_interpolate(old_x, old_y, field_src);
         }
     }
-}
