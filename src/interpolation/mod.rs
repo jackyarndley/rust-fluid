@@ -1,4 +1,4 @@
-use util::{Field, clamp, min, max, linear_interpolate, cubic_interpolate};
+use crate::util::{Field, clamp, min, max, linear_interpolate, cubic_interpolate};
 
 pub fn empty(_: f64, _: f64, _: &Field) -> f64 {
     0.0
@@ -47,3 +47,4 @@ pub fn bicubic_interpolate(mut x: f64, mut y: f64, field: &Field) -> f64 {
     let q3 = cubic_interpolate(field.at(y3, x0), field.at(y3, x1), field.at(y3, x2), field.at(y3, x3), x);
 
     cubic_interpolate(q0, q1, q2, q3, y)
+}
