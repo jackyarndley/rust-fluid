@@ -1,5 +1,5 @@
-use crate::util::Field;
-use crate::interpolation::bilinear_interpolate;
+use util::Field;
+use interpolation::bilinear_interpolate;
 
 pub fn empty(_: &mut Field, _: &Field, _: &Field, _: &Field, _: f64, _: f64, _: &Fn(f64, f64, &Fn(f64, f64) -> f64, f64) -> f64) {
 

@@ -1,4 +1,4 @@
-use crate::util::IntegrableFunction;
+use util::IntegrableFunction;
 
 pub fn empty(_: f64, _: f64, _: &Fn(f64, f64) -> f64, _: f64) -> f64 {
     0.0

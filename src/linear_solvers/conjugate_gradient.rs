@@ -1,4 +1,4 @@
-use crate::util::{Sparse, infinity_norm, dot_product, matrix_vector_product, scaled_add1, scaled_add2};
+use util::{Sparse, infinity_norm, dot_product, matrix_vector_product, scaled_add1, scaled_add2};
 
 fn build_pressure_matrix(a: &mut Sparse, fluid_density: f64, dt: f64, dx: f64, rows: usize, columns: usize) {
     let scale = dt / (fluid_density * dx * dx);

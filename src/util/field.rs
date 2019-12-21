@@ -1,4 +1,4 @@
-use crate::util::{cubic_pulse, length};
+use util::{cubic_pulse, length};
 
 pub struct Field {
     pub field: Vec<f64>,

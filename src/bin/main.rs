@@ -19,12 +19,13 @@ fn main() {
             print!("Global iteration {}. ", 4 * iteration + i);
             solver.solve();
 
+
             solver.u_velocity.add_inflow(20, 20, 40, 40, 2.0);
             solver.v_velocity.add_inflow(20, 20, 40, 40, 2.0);
             solver.density.add_inflow(20, 20, 40, 40, 2.0);
         }
 
-        solver.to_image(&mut buffer);
-        lodepng::encode32_file(format!("output/{}.png", iteration), &buffer, 128, 128).unwrap();
+//        solver.to_image(&mut buffer);
+//        lodepng::encode32_file(format!("output/{}.png", iteration), &buffer, 128, 128).unwrap();
     }
 }

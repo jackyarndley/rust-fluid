@@ -1,4 +1,4 @@
-use crate::util::{min, max, clamp};
+use util::{min, max, clamp};
 
 pub fn linear_interpolate(a: f64, b: f64, x: f64) -> f64 {
     a * (1.0 - x) + b * x

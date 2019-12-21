@@ -1,4 +1,4 @@
-use crate::util::Sparse;
+use util::Sparse;
 
 mod gauss_siedel;
 mod conjugate_gradient;

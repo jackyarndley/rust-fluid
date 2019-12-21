@@ -1,8 +1,0 @@
-[package]
-name = "rust_fluid"
-version = "0.1.0"
-authors = ["jackyarndley <34254805+jackyarndley@users.noreply.github.com>"]
-edition = "2018"
-
-[dependencies]
-lodepng = "2.4.2"
