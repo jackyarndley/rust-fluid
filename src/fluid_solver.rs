@@ -1,33 +1,27 @@
-use crate::util::{LinearSolver, Integration, Interpolation, Advection};
 use crate::util::{Field, Sparse};
 use crate::util::max;
 use std::mem::swap;
-use crate::linear_solvers;
-use crate::integration;
+use crate::linear_solvers::LinearSolver;
+use crate::integration::Integration;
 use crate::interpolation;
-use crate::advection;
+use crate::advection::Advection;
 
 pub struct FluidSolver {
     pub u_velocity:     Field,
-    pub u_velocity_dst:     Field,
+    pub u_velocity_dst: Field,
     pub v_velocity:     Field,
-    pub v_velocity_dst:     Field,
+    pub v_velocity_dst: Field,
     pub density:        Field,
-    pub density_dst:        Field,
+    pub density_dst:    Field,
     pub rows:           usize,
     pub columns:        usize,
     pressure:           Vec<f64>,
     residual:           Vec<f64>,
-    auxiliary:          Vec<f64>,
-    search:             Vec<f64>,
-    preconditioner:     Vec<f64>,
-    a:                  Sparse,
     dt:                 f64,
     dx:                 f64,
     fluid_density:      f64,
     linear_solver:      LinearSolver,
     integration:        Integration,
-    interpolation:      Interpolation,
     advection:          Advection,
 }
 
@@ -38,47 +32,42 @@ impl FluidSolver {
             u_velocity:     Field::new(rows, columns + 1, 0.0, 0.5),
             u_velocity_dst: Field::new(rows, columns + 1, 0.0, 0.5),
             v_velocity:     Field::new(rows + 1, columns, 0.5, 0.0),
-            v_velocity_dst:     Field::new(rows + 1, columns, 0.5, 0.0),
+            v_velocity_dst: Field::new(rows + 1, columns, 0.5, 0.0),
             density:        Field::new(rows, columns, 0.5, 0.5),
-            density_dst:        Field::new(rows, columns, 0.5, 0.5),
+            density_dst:    Field::new(rows, columns, 0.5, 0.5),
             rows,
             columns,
             pressure:       vec![0.0; rows * columns],
             residual:       vec![0.0; rows * columns],
-            auxiliary:      vec![0.0; rows * columns],
-            search:         vec![0.0; rows * columns],
-            preconditioner: vec![0.0; rows * columns],
-            a:              Sparse::new(rows * columns),
             dt,
             dx,
             fluid_density,
-            linear_solver:  linear_solvers::empty,
-            integration:    integration::empty,
-            interpolation:  interpolation::empty,
-            advection:      advection::empty,
+            linear_solver:  LinearSolver::Empty,
+            integration:    Integration::Empty,
+            advection:      Advection::Empty,
         }
     }
 
     // Sets the linear solver used in the simulation
-    pub fn linear_solver(mut self, f: LinearSolver) -> Self {
+    pub fn linear_solver(mut self, f: LinearSolver) -> FluidSolver {
         self.linear_solver = f;
         self
     }
 
     // Sets the integration method used in the simulation
-    pub fn integration(mut self, f: Integration) -> Self {
+    pub fn integration(mut self, f: Integration) -> FluidSolver {
         self.integration = f;
         self
     }
 
     // Sets the interpolation method used in the simulation
-    pub fn interpolation(mut self, f: Interpolation) -> Self {
-        self.interpolation = f;
-        self
-    }
+//    pub fn interpolation(mut self, f: Interpolation) {
+//        self.interpolation = f;
+//        self
+//    }
 
     // Sets the advection method used in the simulation
-    pub fn advection(mut self, f: Advection) -> Self {
+    pub fn advection(mut self, f: Advection) -> FluidSolver {
         self.advection = f;
         self
     }
@@ -116,7 +105,7 @@ impl FluidSolver {
 
     // Solves pressure array based on divergence, passed to linear solver function
     fn solve_pressure(&mut self) {
-        (self.linear_solver)(&mut self.pressure, &mut self.residual, &mut self.auxiliary, &mut self.search, &mut self.preconditioner, &mut self.a, self.fluid_density, self.dt, self.dx, self.rows, self.columns, 600);
+        self.linear_solver.run(&mut self.pressure, &mut self.residual, self.fluid_density, self.dt, self.dx, self.rows, self.columns);
     }
 
     // Applies computed pressure field to the xy velocity vector field
@@ -143,9 +132,9 @@ impl FluidSolver {
 
     // Advection method moves density scalar field through velocity vector field to produce output
     fn advect(&mut self) {
-        (self.advection)(&mut self.u_velocity_dst, &self.u_velocity, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
-        (self.advection)(&mut self.v_velocity_dst, &self.v_velocity, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
-        (self.advection)(&mut self.density_dst, &self.density, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
+        self.advection.advect(&mut self.u_velocity_dst, &self.u_velocity, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
+        self.advection.advect(&mut self.v_velocity_dst, &self.v_velocity, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
+        self.advection.advect(&mut self.density_dst, &self.density, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
 
         swap(&mut self.u_velocity.field, &mut self.u_velocity_dst.field);
         swap(&mut self.v_velocity.field, &mut self.v_velocity_dst.field);

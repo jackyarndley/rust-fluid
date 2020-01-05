@@ -1,9 +1,5 @@
 use crate::util::{Field, clamp, min, max, linear_interpolate, cubic_interpolate};
 
-pub fn empty(_: f64, _: f64, _: &Field) -> f64 {
-    0.0
-}
-
 // Bilinear interpolation takes 4 points surrounding a value and linearly interpolates their values
 pub fn bilinear_interpolate(mut x: f64, mut y: f64, field: &Field) -> f64 {
     x = clamp(x - field.x_offset, 0.0, field.columns as f64 - 1.001);

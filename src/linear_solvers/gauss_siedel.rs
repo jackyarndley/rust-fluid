@@ -1,6 +1,6 @@
 use crate::util::Sparse;
 
-pub fn gauss_siedel(pressure: &mut Vec<f64>, residual: &mut Vec<f64>, _: &mut Vec<f64>, _: &mut Vec<f64>, _: &mut Vec<f64>, _: &mut Sparse, fluid_density: f64, dt: f64, dx: f64, rows: usize, columns: usize, limit: usize) {
+pub fn gauss_siedel(pressure: &mut Vec<f64>, residual: &mut Vec<f64>, fluid_density: f64, dt: f64, dx: f64, rows: usize, columns: usize, limit: usize) {
     let scale = dt / (fluid_density * dx * dx);
     let mut max_delta = 0.0;
 

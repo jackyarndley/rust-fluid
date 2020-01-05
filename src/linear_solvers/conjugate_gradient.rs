@@ -129,7 +129,7 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
         max_error = infinity_norm(residual);
 
         if max_error < 1e-5 {
-            println!("Exiting solver after {} iterations, maximum change is {}", iteration, max_error);
+            println!("Exiting solver after {} iterations, delta {}", iteration, max_error);
             return;
         }
 

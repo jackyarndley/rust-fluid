@@ -5,4 +5,4 @@ authors = ["jackyarndley <34801340+jackyarndley@users.noreply.github.com>"]
 edition = "2018"
 
 [dependencies]
-lodepng = "2.4.2"
+image = "0.22.3"
