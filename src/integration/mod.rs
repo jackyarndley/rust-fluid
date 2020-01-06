@@ -1,5 +1,4 @@
 pub enum Integration {
-    Empty,
     Euler,
     BogackiShampine,
     RungeKutta4
@@ -8,9 +7,6 @@ pub enum Integration {
 impl Integration {
     pub fn run(&self, t: f64, y: f64, f: &dyn Fn(f64, f64) -> f64, dt: f64) -> f64 {
         match self {
-            Integration::Empty => {
-                0.0
-            }
             Integration::Euler => {
                 y + f(t, y) * dt
             }

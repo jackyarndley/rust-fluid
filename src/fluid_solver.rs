@@ -1,10 +1,10 @@
-use crate::util::{Field, Sparse};
-use crate::util::max;
 use std::mem::swap;
 use crate::linear_solvers::LinearSolver;
 use crate::integration::Integration;
 use crate::interpolation;
 use crate::advection::Advection;
+use crate::util::field::Field;
+use crate::interpolation::Interpolation;
 
 pub struct FluidSolver {
     pub u_velocity:     Field,
@@ -17,17 +17,18 @@ pub struct FluidSolver {
     pub columns:        usize,
     pressure:           Vec<f64>,
     residual:           Vec<f64>,
-    dt:                 f64,
-    dx:                 f64,
+    timestep:           f64,
+    cell_size:          f64,
     fluid_density:      f64,
     linear_solver:      LinearSolver,
     integration:        Integration,
+    interpolation:      Interpolation,
     advection:          Advection,
 }
 
 impl FluidSolver {
     // Creates a new FluidSolver. x_velocity has one more column, while y_velocity has 1 more row
-    pub fn new(rows: usize, columns: usize, dt: f64, dx: f64, fluid_density: f64) -> FluidSolver {
+    pub fn new(rows: usize, columns: usize, timestep: f64, cell_size: f64, fluid_density: f64) -> FluidSolver {
         FluidSolver {
             u_velocity:     Field::new(rows, columns + 1, 0.0, 0.5),
             u_velocity_dst: Field::new(rows, columns + 1, 0.0, 0.5),
@@ -39,35 +40,38 @@ impl FluidSolver {
             columns,
             pressure:       vec![0.0; rows * columns],
             residual:       vec![0.0; rows * columns],
-            dt,
-            dx,
+            timestep,
+            cell_size,
             fluid_density,
-            linear_solver:  LinearSolver::Empty,
-            integration:    Integration::Empty,
-            advection:      Advection::Empty,
+            linear_solver:  LinearSolver::GaussSiedel {
+                iterations: 600
+            },
+            integration:    Integration::BogackiShampine,
+            interpolation:  Interpolation::BiLinear,
+            advection:      Advection::SemiLagrangian,
         }
     }
 
     // Sets the linear solver used in the simulation
-    pub fn linear_solver(mut self, f: LinearSolver) -> FluidSolver {
+    pub fn linear_solver(mut self, f: LinearSolver) -> Self {
         self.linear_solver = f;
         self
     }
 
     // Sets the integration method used in the simulation
-    pub fn integration(mut self, f: Integration) -> FluidSolver {
+    pub fn integration(mut self, f: Integration) -> Self {
         self.integration = f;
         self
     }
 
     // Sets the interpolation method used in the simulation
-//    pub fn interpolation(mut self, f: Interpolation) {
-//        self.interpolation = f;
-//        self
-//    }
+    pub fn interpolation(mut self, f: Interpolation) -> Self {
+        self.interpolation = f;
+        self
+    }
 
     // Sets the advection method used in the simulation
-    pub fn advection(mut self, f: Advection) -> FluidSolver {
+    pub fn advection(mut self, f: Advection) -> Self {
         self.advection = f;
         self
     }
@@ -98,19 +102,19 @@ impl FluidSolver {
                 let v2 = self.v_velocity.at(row + 1, column);
 
                 // Factor in cell scale and invert for solving
-                self.residual[row * self.columns + column] = -1.0 * (u2 - u1 + v2 - v1) / self.dx;
+                self.residual[row * self.columns + column] = -1.0 * (u2 - u1 + v2 - v1) / self.cell_size;
             }
         }
     }
 
     // Solves pressure array based on divergence, passed to linear solver function
     fn solve_pressure(&mut self) {
-        self.linear_solver.run(&mut self.pressure, &mut self.residual, self.fluid_density, self.dt, self.dx, self.rows, self.columns);
+        self.linear_solver.solve(&mut self.pressure, &mut self.residual, self.fluid_density, self.timestep, self.cell_size, self.rows, self.columns);
     }
 
     // Applies computed pressure field to the xy velocity vector field
     fn apply_pressure(&mut self) {
-        let scale = self.dt / (self.fluid_density * self.dx);
+        let scale = self.timestep / (self.fluid_density * self.cell_size);
 
         for row in 0..self.rows {
             for column in 0..self.columns {
@@ -132,9 +136,9 @@ impl FluidSolver {
 
     // Advection method moves density scalar field through velocity vector field to produce output
     fn advect(&mut self) {
-        self.advection.advect(&mut self.u_velocity_dst, &self.u_velocity, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
-        self.advection.advect(&mut self.v_velocity_dst, &self.v_velocity, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
-        self.advection.advect(&mut self.density_dst, &self.density, &self.u_velocity, &self.v_velocity, self.dt, self.dx, &self.integration);
+        self.advection.advect(&mut self.u_velocity_dst, &self.u_velocity, &self.u_velocity, &self.v_velocity, self.timestep, &self.interpolation, &self.integration);
+        self.advection.advect(&mut self.v_velocity_dst, &self.v_velocity, &self.u_velocity, &self.v_velocity, self.timestep, &self.interpolation, &self.integration);
+        self.advection.advect(&mut self.density_dst, &self.density, &self.u_velocity, &self.v_velocity, self.timestep, &self.interpolation, &self.integration);
 
         swap(&mut self.u_velocity.field, &mut self.u_velocity_dst.field);
         swap(&mut self.v_velocity.field, &mut self.v_velocity_dst.field);
@@ -150,9 +154,9 @@ impl FluidSolver {
     }
 
     // Basic function to convert density_src array into an image buffer
-    pub fn to_image(&self, buffer: &mut Vec<u8>) {
+    pub fn to_image(&self, max_density: f64, buffer: &mut Vec<u8>) {
         for i in 0..(self.rows * self.columns) {
-            let shade: u8 = (self.density.field[i] * 255.0 / 3.0) as u8;
+            let shade = (self.density.field[i] * 255.99 / max_density).trunc() as u8;
 
             buffer[i * 4 + 0] = shade;
             buffer[i * 4 + 1] = shade;

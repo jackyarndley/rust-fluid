@@ -35,3 +35,19 @@ pub fn max<T: PartialOrd>(a: T, b: T) -> T {
         b
     }
 }
+
+pub fn nsgn(a: f64) -> f64 {
+    if a < 0.0 {
+        -1.0
+    } else {
+        1.0
+    }
+}
+
+pub fn rotate(x: &mut f64, y: &mut f64, phi: f64) {
+    let tmp_x = *x;
+    let tmp_y = *y;
+
+    *x = phi.cos() * tmp_x + phi.sin() * tmp_y;
+    *y = -phi.sin() * tmp_x + phi.cos() * tmp_y;
+}
