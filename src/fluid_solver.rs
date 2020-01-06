@@ -3,16 +3,13 @@ use crate::linear_solvers::LinearSolver;
 use crate::integration::Integration;
 use crate::interpolation;
 use crate::advection::Advection;
-use crate::util::field::Field;
+use crate::util::fluid_quantity::FluidQuantity;
 use crate::interpolation::Interpolation;
 
 pub struct FluidSolver {
-    pub u_velocity:     Field,
-    pub u_velocity_dst: Field,
-    pub v_velocity:     Field,
-    pub v_velocity_dst: Field,
-    pub density:        Field,
-    pub density_dst:    Field,
+    pub u_velocity: FluidQuantity,
+    pub v_velocity: FluidQuantity,
+    pub density: FluidQuantity,
     pub rows:           usize,
     pub columns:        usize,
     pressure:           Vec<f64>,
@@ -30,12 +27,9 @@ impl FluidSolver {
     // Creates a new FluidSolver. x_velocity has one more column, while y_velocity has 1 more row
     pub fn new(rows: usize, columns: usize, timestep: f64, cell_size: f64, fluid_density: f64) -> FluidSolver {
         FluidSolver {
-            u_velocity:     Field::new(rows, columns + 1, 0.0, 0.5),
-            u_velocity_dst: Field::new(rows, columns + 1, 0.0, 0.5),
-            v_velocity:     Field::new(rows + 1, columns, 0.5, 0.0),
-            v_velocity_dst: Field::new(rows + 1, columns, 0.5, 0.0),
-            density:        Field::new(rows, columns, 0.5, 0.5),
-            density_dst:    Field::new(rows, columns, 0.5, 0.5),
+            u_velocity:     FluidQuantity::new(rows, columns + 1, 0.0, 0.5),
+            v_velocity:     FluidQuantity::new(rows + 1, columns, 0.5, 0.0),
+            density:        FluidQuantity::new(rows, columns, 0.5, 0.5),
             rows,
             columns,
             pressure:       vec![0.0; rows * columns],
@@ -136,13 +130,7 @@ impl FluidSolver {
 
     // Advection method moves density scalar field through velocity vector field to produce output
     fn advect(&mut self) {
-        self.advection.advect(&mut self.u_velocity_dst, &self.u_velocity, &self.u_velocity, &self.v_velocity, self.timestep, &self.interpolation, &self.integration);
-        self.advection.advect(&mut self.v_velocity_dst, &self.v_velocity, &self.u_velocity, &self.v_velocity, self.timestep, &self.interpolation, &self.integration);
-        self.advection.advect(&mut self.density_dst, &self.density, &self.u_velocity, &self.v_velocity, self.timestep, &self.interpolation, &self.integration);
-
-        swap(&mut self.u_velocity.field, &mut self.u_velocity_dst.field);
-        swap(&mut self.v_velocity.field, &mut self.v_velocity_dst.field);
-        swap(&mut self.density.field, &mut self.density_dst.field);
+        self.advection.advect(&mut self.u_velocity, &mut self.v_velocity, &mut self.density, self.timestep, &self.interpolation, &self.integration);
     }
 
     // Produces the next frame of the simulation by projecting then advecting
@@ -156,7 +144,7 @@ impl FluidSolver {
     // Basic function to convert density_src array into an image buffer
     pub fn to_image(&self, max_density: f64, buffer: &mut Vec<u8>) {
         for i in 0..(self.rows * self.columns) {
-            let shade = (self.density.field[i] * 255.99 / max_density).trunc() as u8;
+            let shade = (self.density.src[i] * 255.99 / max_density).trunc() as u8;
 
             buffer[i * 4 + 0] = shade;
             buffer[i * 4 + 1] = shade;

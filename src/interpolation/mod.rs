@@ -1,4 +1,4 @@
-use crate::util::field::Field;
+use crate::util::fluid_quantity::FluidQuantity;
 use crate::util::helper::{max, min, clamp};
 
 pub fn linear_interpolate(a: f64, b: f64, x: f64) -> f64 {
@@ -27,7 +27,7 @@ pub enum Interpolation {
 }
 
 impl Interpolation {
-    pub fn run(&self, mut x: f64, mut y: f64, field: &Field) -> f64 {
+    pub fn run(&self, mut x: f64, mut y: f64, field: &FluidQuantity) -> f64 {
         match self {
             Interpolation::BiLinear => {
                 x = clamp(x - field.x_offset, 0.0, field.columns as f64 - 1.001);

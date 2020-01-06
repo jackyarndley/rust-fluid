@@ -1,4 +1,3 @@
-use crate::util::{rotate, length, nsgn, max};
 use crate::util::helper::{length, max, rotate, nsgn};
 
 pub enum SolidType {
