@@ -1,16 +1,20 @@
 use rust_fluid::fluid_solver::FluidSolver;
 use rust_fluid::{integration, linear_solvers, advection};
 use rust_fluid::util::sparse::Sparse;
+use rust_fluid::solid::SolidBody;
 
 extern crate image;
 
 fn main() {
     let width = 256;
-    let height = 128;
+    let height = 256;
 
     let mut buffer = vec![0u8; width * height * 4];
 
-    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 128.0, 1.0)
+    let mut bodies = Vec::new();
+    bodies.push(SolidBody::new_box(0.5, 0.6, 0.7, 0.1, std::f64::consts::FRAC_PI_4, 0.0, 0.0, std::f64::consts::FRAC_PI_4));
+
+    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 256.0, 0.1, bodies)
         .integration(integration::Integration::BogackiShampine)
         .linear_solver(linear_solvers::LinearSolver::ConjugateGradient {
             auxiliary: vec![0.0; width * height],
@@ -21,22 +25,16 @@ fn main() {
         })
         .advection(advection::Advection::SemiLagrangian);
 
-    solver.u_velocity.add_inflow(20, 20, 40, 40, 5.0);
-    solver.v_velocity.add_inflow(20, 20, 40, 40, 0.0);
-    solver.density.add_inflow(20, 20, 40, 40, 2.0);
-
+    // Over 10s
     for iteration in 0..500 {
         for i in 0..4 {
-            print!("Iteration {}. ", 4 * iteration + i);
+            print!("Step {}: ", 4 * iteration + i);
+            solver.add_inflow(0.45, 0.2, 0.15, 0.03, 1.0, 0.0, 3.0);
             solver.update();
-
-            solver.u_velocity.add_inflow(20, 20, 40, 40, 5.0);
-            solver.v_velocity.add_inflow(20, 20, 40, 40, 0.0);
-            solver.density.add_inflow(20, 20, 40, 40, 2.0);
         }
 
-        solver.to_image(2.0, &mut buffer);
-        println!("Saving image...");
+        solver.to_image(1.0, &mut buffer);
+        println!("Saving.");
         image::save_buffer(format!("output/{}.png", iteration), &buffer, width as u32, height as u32, image::RGBA(8)).unwrap();
     }
 }

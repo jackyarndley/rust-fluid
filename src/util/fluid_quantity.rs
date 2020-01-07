@@ -1,4 +1,4 @@
-use crate::util::helper::{cubic_pulse, length};
+use crate::util::helper::{cubic_pulse, length, max, min};
 use std::mem::swap;
 use crate::solid::SolidBody;
 
@@ -95,12 +95,17 @@ impl FluidQuantity {
         swap(&mut self.src, &mut self.dst);
     }
 
-    pub fn add_inflow(&mut self, ix0: usize, iy0: usize, ix1: usize, iy1: usize, value: f64) {
-        for y in iy0..iy1 {
-            for x in ix0..ix1 {
+    pub fn add_inflow(&mut self, x0: f64, y0: f64, x1: f64, y1: f64, value: f64) {
+        let ix0 = ((x0 / self.cell_size) - self.x_offset) as usize;
+        let iy0 = ((y0 / self.cell_size) - self.y_offset) as usize;
+        let ix1 = ((x1 / self.cell_size) - self.x_offset) as usize;
+        let iy1 = ((y1 / self.cell_size) - self.y_offset) as usize;
+
+        for y in max(iy0, 0)..min(iy1, self.rows) {
+            for x in max(ix0, 0)..min(ix1, self.columns) {
                 let l = length(
-                    (2.0 * (x as f64) - (ix0 + ix1) as f64) / ((ix1 - ix0) as f64),
-                    (2.0 * (y as f64) - (iy0 + iy1) as f64) / ((iy1 - iy0) as f64)
+                    (2.0 * (x as f64 + 0.5) * self.cell_size - (x0 + x1)) / (x1 - x0),
+                    (2.0 * (y as f64 + 0.5) * self.cell_size - (y0 + y1)) / (y1 - y0)
                 );
 
                 let vi = cubic_pulse(l) * value;
@@ -156,11 +161,11 @@ impl FluidQuantity {
                     let ny = self.normal_y_at(row, column);
 
                     *self.mask_at_mut(row, column) = 0;
-                    if nx != 0.0 && self.cell_at(row, column + nx.signum() as usize) != 0 {
+                    if nx != 0.0 && self.cell_at(row, (column as isize + nx.signum() as isize) as usize) != 0 {
                         *self.mask_at_mut(row, column) |= 1;
                     }
 
-                    if ny != 0.0 && self.cell_at(row + ny.signum() as usize, column) != 0 {
+                    if ny != 0.0 && self.cell_at((row as isize + ny.signum() as isize) as usize, column) != 0 {
                         *self.mask_at_mut(row, column) |= 2;
                     }
                 }
@@ -172,8 +177,8 @@ impl FluidQuantity {
         let nx = self.normal_x[idx];
         let ny = self.normal_y[idx];
 
-        let src_x = self.src[idx +  nx.signum() as usize];
-        let src_y = self.src[idx + ny.signum() as usize * self.columns];
+        let src_x = self.src[(idx as isize + nx.signum() as isize) as usize];
+        let src_y = self.src[(idx as isize + (ny.signum() as isize * self.columns as isize)) as usize];
 
         (nx.abs() * src_x + ny.abs() * src_y) / (nx.abs() + ny.abs())
     }

@@ -1,91 +1,98 @@
 use crate::util::sparse::Sparse;
 use crate::util::linear_algebra::{infinity_norm, dot_product, matrix_vector_product, scaled_add1, scaled_add2};
 
-fn build_pressure_matrix(a: &mut Sparse, fluid_density: f64, dt: f64, dx: f64, rows: usize, columns: usize) {
+fn build_pressure_matrix(a: &mut Sparse, cell: &Vec<u8>, fluid_density: f64, dt: f64, dx: f64, rows: usize, columns: usize) {
     let scale = dt / (fluid_density * dx * dx);
     a.diagonals = vec![0.0; rows * columns];
+    a.plus_x = vec![0.0; rows * columns];
+    a.plus_y = vec![0.0; rows * columns];
 
     for row in 0..rows {
         for column in 0..columns {
             let element = row * columns + column;
+            if cell[element] == 0 {
+                if column < columns - 1 && cell[element + 1] == 0 {
+                    a.diagonals[element] += scale;
+                    a.diagonals[element + 1] += scale;
+                    a.plus_x[element] = -scale;
+                }
 
-            if column < columns - 1 {
-                a.diagonals[element] += scale;
-                a.diagonals[element + 1] += scale;
-                a.plus_x[element] = -scale;
-            } else {
-                a.plus_x[element] = 0.0;
-            }
-
-            if row < rows - 1 {
-                a.diagonals[element] += scale;
-                a.diagonals[element + columns] += scale;
-                a.plus_y[element] = -scale;
-            } else {
-                a.plus_y[element] = 0.0;
+                if row < rows - 1 && cell[element + columns] == 0 {
+                    a.diagonals[element] += scale;
+                    a.diagonals[element + columns] += scale;
+                    a.plus_y[element] = -scale;
+                }
             }
         }
     }
 }
 
-fn build_preconditioner(preconditioner: &mut Vec<f64>, a: &Sparse, rows: usize, columns: usize) {
+fn build_preconditioner(preconditioner: &mut Vec<f64>, a: &Sparse, cell: &Vec<u8>, rows: usize, columns: usize) {
     let tau = 0.97;
 
     for row in 0..rows {
         for column in 0..columns {
             let element = row * columns + column;
 
-            let mut e = a.diagonals[element];
+            if cell[element] == 0 {
+                let mut e = a.diagonals[element];
 
-            if column > 0 {
-                let px = a.plus_x[element - 1] * preconditioner[element - 1];
-                let py = a.plus_y[element - 1] * preconditioner[element - 1];
-                e -= px * px + tau * px * py;
+                if column > 0 && cell[element - 1] == 0 {
+                    let px = a.plus_x[element - 1] * preconditioner[element - 1];
+                    let py = a.plus_y[element - 1] * preconditioner[element - 1];
+                    e -= px * px + tau * px * py;
+                }
+
+                if row > 0 && cell[element - columns] == 0 {
+                    let px = a.plus_x[element - columns] * preconditioner[element - columns];
+                    let py = a.plus_y[element - columns] * preconditioner[element - columns];
+                    e -= py * py + tau * px * py;
+                }
+
+                preconditioner[element] = 1.0 / (e + 1e-30).sqrt();
             }
-
-            if row > 0 {
-                let px = a.plus_x[element - columns] * preconditioner[element - columns];
-                let py = a.plus_y[element - columns] * preconditioner[element - columns];
-                e -= py * py + tau * px * py;
-            }
-
-            preconditioner[element] = 1.0 / (e + 1e-30).sqrt();
         }
     }
 }
 
-fn apply_preconditioner(auxiliary: &mut Vec<f64>, residual: &Vec<f64>, a: &Sparse, preconditioner: &Vec<f64>, rows: usize, columns: usize) {
+fn apply_preconditioner(auxiliary: &mut Vec<f64>, residual: &Vec<f64>, a: &Sparse, preconditioner: &Vec<f64>, cell: &Vec<u8>, rows: usize, columns: usize) {
     for row in 0..rows {
         for column in 0..columns {
             let element = row * columns + column;
-            let mut t = residual[element];
 
-            if column > 0 {
-                t -= a.plus_x[element - 1] * preconditioner[element - 1] * auxiliary[element - 1];
+            if cell[element] == 0 {
+                let mut t = residual[element];
+
+                if column > 0 && cell[element - 1] == 0 {
+                    t -= a.plus_x[element - 1] * preconditioner[element - 1] * auxiliary[element - 1];
+                }
+
+                if row > 0 && cell[element - columns] == 0 {
+                    t -= a.plus_y[element - columns] * preconditioner[element - columns] * auxiliary[element - columns];
+                }
+
+                auxiliary[element] = t * preconditioner[element];
             }
-
-            if row > 0 {
-                t -= a.plus_y[element - columns] * preconditioner[element - columns] * auxiliary[element - columns];
-            }
-
-            auxiliary[element] = t * preconditioner[element];
         }
     }
 
     for row in (0..rows).rev() {
         for column in (0..columns).rev() {
             let element = row * columns + column;
-            let mut t = auxiliary[element];
 
-            if column < columns - 1 {
-                t -= a.plus_x[element] * preconditioner[element] * auxiliary[element + 1];
+            if cell[element] == 0 {
+                let mut t = auxiliary[element];
+
+                if column < columns - 1 && cell[element + 1] == 0 {
+                    t -= a.plus_x[element] * preconditioner[element] * auxiliary[element + 1];
+                }
+
+                if row < rows - 1 && cell[element + columns] == 0 {
+                    t -= a.plus_y[element] * preconditioner[element] * auxiliary[element + columns];
+                }
+
+                auxiliary[element] = t * preconditioner[element];
             }
-
-            if row < rows - 1 {
-                t -= a.plus_y[element] * preconditioner[element] * auxiliary[element + columns];
-            }
-
-            auxiliary[element] = t * preconditioner[element];
         }
     }
 }
@@ -96,6 +103,7 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
                           search: &mut Vec<f64>,
                           preconditioner: &mut Vec<f64>,
                           a: &mut Sparse,
+                          cell: &Vec<u8>,
                           fluid_density: f64,
                           dt: f64,
                           dx: f64,
@@ -103,12 +111,12 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
                           columns: usize,
                           limit: usize) {
 
-    build_pressure_matrix(a, fluid_density, dt, dx, rows, columns);
-    build_preconditioner(preconditioner, a, rows, columns);
+    build_pressure_matrix(a, cell, fluid_density, dt, dx, rows, columns);
+    build_preconditioner(preconditioner, a, cell, rows, columns);
 
     *pressure = vec![0.0; rows * columns];
 
-    apply_preconditioner(auxiliary, residual, a, preconditioner, rows, columns);
+    apply_preconditioner(auxiliary, residual, a, preconditioner, cell, rows, columns);
     *search = auxiliary.clone();
 
     let mut max_error = infinity_norm(residual);
@@ -130,11 +138,11 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
         max_error = infinity_norm(residual);
 
         if max_error < 1e-5 {
-            println!("Exiting solver after {} iterations, delta {}", iteration, max_error);
+            println!("{} solver iterations, delta {}", iteration, max_error);
             return;
         }
 
-        apply_preconditioner(auxiliary, residual, a, preconditioner, rows, columns);
+        apply_preconditioner(auxiliary, residual, a, preconditioner, cell, rows, columns);
 
         let sigma_new = dot_product(auxiliary, residual);
         scaled_add2(search, auxiliary, sigma_new / sigma);

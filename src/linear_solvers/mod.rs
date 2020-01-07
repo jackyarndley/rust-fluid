@@ -20,7 +20,7 @@ pub enum LinearSolver {
 }
 
 impl LinearSolver {
-    pub fn solve(&mut self, pressure: &mut Vec<f64>, residual: &mut Vec<f64>, fluid_density: f64, timestep: f64, cell_size: f64, rows: usize, columns: usize) {
+    pub fn solve(&mut self, pressure: &mut Vec<f64>, residual: &mut Vec<f64>, cell: &Vec<u8>, fluid_density: f64, timestep: f64, cell_size: f64, rows: usize, columns: usize) {
         match self {
             LinearSolver::GaussSiedel {
                 iterations
@@ -34,7 +34,7 @@ impl LinearSolver {
                 a,
                 iterations
             } => {
-                conjugate_gradient(pressure, residual, auxiliary, search, preconditioner, a, fluid_density, timestep, cell_size, rows, columns, *iterations)
+                conjugate_gradient(pressure, residual, auxiliary, search, preconditioner, a, cell, fluid_density, timestep, cell_size, rows, columns, *iterations)
             }
         }
     }

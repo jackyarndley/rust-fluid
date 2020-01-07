@@ -3,6 +3,8 @@ use crate::integration::Integration;
 use crate::advection::Advection;
 use crate::util::fluid_quantity::FluidQuantity;
 use crate::interpolation::Interpolation;
+use crate::solid::SolidBody;
+use crate::util::helper::{max, min};
 
 pub struct FluidSolver {
     pub u_velocity: FluidQuantity,
@@ -19,11 +21,12 @@ pub struct FluidSolver {
     integration:        Integration,
     interpolation:      Interpolation,
     advection:          Advection,
+    bodies:             Vec<SolidBody>
 }
 
 impl FluidSolver {
     // Creates a new FluidSolver. x_velocity has one more column, while y_velocity has 1 more row
-    pub fn new(rows: usize, columns: usize, timestep: f64, cell_size: f64, fluid_density: f64) -> FluidSolver {
+    pub fn new(rows: usize, columns: usize, timestep: f64, cell_size: f64, fluid_density: f64, bodies: Vec<SolidBody>) -> FluidSolver {
         FluidSolver {
             u_velocity:     FluidQuantity::new(rows, columns + 1, 0.0, 0.5, cell_size),
             v_velocity:     FluidQuantity::new(rows + 1, columns, 0.5, 0.0, cell_size),
@@ -41,6 +44,7 @@ impl FluidSolver {
             integration:    Integration::BogackiShampine,
             interpolation:  Interpolation::BiLinear,
             advection:      Advection::SemiLagrangian,
+            bodies
         }
     }
 
@@ -70,8 +74,18 @@ impl FluidSolver {
 
     // Sets boundaries of simulation by setting xy velocities at boundaries to 0
     fn set_boundaries(&mut self) {
+        for row in 0..self.rows {
+            for column in 0..self.columns {
+                if self.density.cell_at(row, column) == 1 {
+                    let body = &self.bodies[self.density.body_at(row, column) as usize];
 
-        // TODO: Set all bordering solids to the solid velocity
+                    *self.u_velocity.at_mut(row, column) = body.velocity_x(column as f64 * self.cell_size, (row as f64 + 0.5) * self.cell_size);
+                    *self.v_velocity.at_mut(row, column) = body.velocity_y((column as f64 + 0.5) * self.cell_size, row as f64 * self.cell_size);
+                    *self.u_velocity.at_mut(row, column + 1) = body.velocity_x((column as f64 + 1.0) * self.cell_size, (row as f64 + 0.5) * self.cell_size);
+                    *self.v_velocity.at_mut(row + 1, column) = body.velocity_y((column as f64 + 0.5) * self.cell_size, (row as f64 + 1.0) * self.cell_size);
+                }
+            }
+        }
 
         for row in 0..self.rows {
             *self.u_velocity.at_mut(row, 0) = 0.0;
@@ -109,7 +123,7 @@ impl FluidSolver {
 
     // Solves pressure array based on divergence, passed to linear solver function
     fn solve_pressure(&mut self) {
-        self.linear_solver.solve(&mut self.pressure, &mut self.residual, self.fluid_density, self.timestep, self.cell_size, self.rows, self.columns);
+        self.linear_solver.solve(&mut self.pressure, &mut self.residual, &self.density.cell, self.fluid_density, self.timestep, self.cell_size, self.rows, self.columns);
     }
 
     // Applies computed pressure field to the xy velocity vector field
@@ -134,6 +148,10 @@ impl FluidSolver {
         self.calculate_residual();
         self.solve_pressure();
         self.apply_pressure();
+
+        self.u_velocity.extrapolate();
+        self.v_velocity.extrapolate();
+        self.density.extrapolate();
     }
 
     // Advection method moves density scalar field through velocity vector field to produce output
@@ -143,18 +161,35 @@ impl FluidSolver {
 
     // Produces the next frame of the simulation by projecting then advecting
     pub fn update(&mut self) {
+        for body in &mut self.bodies {
+            body.update(self.timestep);
+        }
+
+        self.u_velocity.fill_solid_fields(&self.bodies);
+        self.v_velocity.fill_solid_fields(&self.bodies);
+        self.density.fill_solid_fields(&self.bodies);
+
         self.set_boundaries();
         self.project();
         self.set_boundaries();
         self.advect();
     }
 
-    // TODO: Add an inflow function
+    pub fn add_inflow(&mut self, x: f64, y: f64, width: f64, height: f64, density: f64, u_velocity: f64, v_velocity: f64) {
+        self.density.add_inflow(x, y, x + width, y + height, density);
+        self.u_velocity.add_inflow(x, y, x + width, y + height, u_velocity);
+        self.v_velocity.add_inflow(x, y, x + width, y + height, v_velocity);
+    }
 
     // Basic function to convert density_src array into an image buffer
     pub fn to_image(&self, max_density: f64, buffer: &mut Vec<u8>) {
         for i in 0..(self.rows * self.columns) {
-            let shade = (self.density.src[i] * 255.99 / max_density).trunc() as u8;
+            let mut shade = ((max_density - self.density.src[i]) * 255.0 / max_density) as u8;
+            shade = max(min(shade, 255), 0);
+
+            if self.density.cell[i] == 1 {
+                shade = 0;
+            }
 
             buffer[i * 4 + 0] = shade;
             buffer[i * 4 + 1] = shade;
