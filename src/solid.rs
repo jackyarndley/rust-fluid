@@ -62,11 +62,11 @@ impl SolidBody {
         *y += self.pos_y;
     }
 
-    pub fn velocity_x(&self, x: f64, y: f64) -> f64 {
+    pub fn velocity_x(&self, _x: f64, y: f64) -> f64 {
         (self.pos_y - y) * self.vel_theta + self.vel_x
     }
 
-    pub fn velocity_y(&self, x: f64, y: f64) -> f64 {
+    pub fn velocity_y(&self, x: f64, _y: f64) -> f64 {
         (self.pos_x - x) * self.vel_theta + self.vel_y
     }
 
@@ -138,7 +138,9 @@ impl SolidBody {
         }
     }
 
-    pub fn distance_normal(&self, nx: &mut f64, ny: &mut f64, mut x: f64, mut y: f64) {
+    pub fn distance_normal(&self, mut x: f64, mut y: f64) -> (f64, f64) {
+        let mut normal_x: f64;
+        let mut normal_y: f64;
         match self.solid_type {
             SolidType::Box => {
                 x -= self.pos_x;
@@ -146,14 +148,16 @@ impl SolidBody {
                 rotate(&mut x, &mut y, -self.theta);
 
                 if x.abs() - self.scale_x * 0.5 > y.abs() - self.scale_y * 0.5 {
-                    *nx = nsgn(x);
-                    *ny = 0.0;
+                    normal_x = nsgn(x);
+                    normal_y = 0.0;
                 } else {
-                    *nx = 0.0;
-                    *ny = nsgn(y);
+                    normal_x = 0.0;
+                    normal_y = nsgn(y);
                 }
 
-                rotate(nx, ny, self.theta)
+                rotate(&mut normal_x, &mut normal_y, self.theta);
+
+                (normal_x, normal_y)
             },
             SolidType::Sphere => {
                 x -= self.pos_x;
@@ -161,12 +165,14 @@ impl SolidBody {
                 let r = length(x, y);
 
                 if r < 1e-4 {
-                    *nx = 1.0;
-                    *ny = 0.0;
+                    normal_x = 1.0;
+                    normal_y = 0.0;
                 } else {
-                    *nx = x/r;
-                    *ny = y/r;
+                    normal_x = x/r;
+                    normal_y = y/r;
                 }
+
+                (normal_x, normal_y)
             }
         }
     }

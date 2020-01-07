@@ -1,7 +1,5 @@
-use std::mem::swap;
 use crate::linear_solvers::LinearSolver;
 use crate::integration::Integration;
-use crate::interpolation;
 use crate::advection::Advection;
 use crate::util::fluid_quantity::FluidQuantity;
 use crate::interpolation::Interpolation;
@@ -27,9 +25,9 @@ impl FluidSolver {
     // Creates a new FluidSolver. x_velocity has one more column, while y_velocity has 1 more row
     pub fn new(rows: usize, columns: usize, timestep: f64, cell_size: f64, fluid_density: f64) -> FluidSolver {
         FluidSolver {
-            u_velocity:     FluidQuantity::new(rows, columns + 1, 0.0, 0.5),
-            v_velocity:     FluidQuantity::new(rows + 1, columns, 0.5, 0.0),
-            density:        FluidQuantity::new(rows, columns, 0.5, 0.5),
+            u_velocity:     FluidQuantity::new(rows, columns + 1, 0.0, 0.5, cell_size),
+            v_velocity:     FluidQuantity::new(rows + 1, columns, 0.5, 0.0, cell_size),
+            density:        FluidQuantity::new(rows, columns, 0.5, 0.5, cell_size),
             rows,
             columns,
             pressure:       vec![0.0; rows * columns],
@@ -72,6 +70,9 @@ impl FluidSolver {
 
     // Sets boundaries of simulation by setting xy velocities at boundaries to 0
     fn set_boundaries(&mut self) {
+
+        // TODO: Set all bordering solids to the solid velocity
+
         for row in 0..self.rows {
             *self.u_velocity.at_mut(row, 0) = 0.0;
             *self.u_velocity.at_mut(row, self.columns) = 0.0;
@@ -87,16 +88,21 @@ impl FluidSolver {
     fn calculate_residual(&mut self) {
         for row in 0..self.rows {
             for column in 0..self.columns {
-                // Get x and x+1 velocities
-                let u1 = self.u_velocity.at(row, column);
-                let u2 = self.u_velocity.at(row, column + 1);
+                if self.density.cell_at(row, column) == 0 {
+                    // Get x and x+1 velocities
+                    let u1 = self.u_velocity.at(row, column);
+                    let u2 = self.u_velocity.at(row, column + 1);
 
-                // Get y and y+1 velocities
-                let v1 = self.v_velocity.at(row, column);
-                let v2 = self.v_velocity.at(row + 1, column);
+                    // Get y and y+1 velocities
+                    let v1 = self.v_velocity.at(row, column);
+                    let v2 = self.v_velocity.at(row + 1, column);
 
-                // Factor in cell scale and invert for solving
-                self.residual[row * self.columns + column] = -1.0 * (u2 - u1 + v2 - v1) / self.cell_size;
+                    // Factor in cell scale and invert for solving
+                    self.residual[row * self.columns + column] = -1.0 * (u2 - u1 + v2 - v1) / self.cell_size;
+                } else {
+                    self.residual[row * self.columns + column] = 0.0;
+                }
+
             }
         }
     }
@@ -112,11 +118,13 @@ impl FluidSolver {
 
         for row in 0..self.rows {
             for column in 0..self.columns {
-                let element = row * self.columns + column;
-                *self.u_velocity.at_mut(row, column) -= scale * self.pressure[element];
-                *self.u_velocity.at_mut(row, column + 1) += scale * self.pressure[element];
-                *self.v_velocity.at_mut(row, column) -= scale * self.pressure[element];
-                *self.v_velocity.at_mut(row + 1, column) += scale * self.pressure[element];
+                if self.density.cell_at(row, column) == 0 {
+                    let element = row * self.columns + column;
+                    *self.u_velocity.at_mut(row, column) -= scale * self.pressure[element];
+                    *self.u_velocity.at_mut(row, column + 1) += scale * self.pressure[element];
+                    *self.v_velocity.at_mut(row, column) -= scale * self.pressure[element];
+                    *self.v_velocity.at_mut(row + 1, column) += scale * self.pressure[element];
+                }
             }
         }
     }
@@ -134,12 +142,14 @@ impl FluidSolver {
     }
 
     // Produces the next frame of the simulation by projecting then advecting
-    pub fn solve(&mut self) {
+    pub fn update(&mut self) {
         self.set_boundaries();
         self.project();
         self.set_boundaries();
         self.advect();
     }
+
+    // TODO: Add an inflow function
 
     // Basic function to convert density_src array into an image buffer
     pub fn to_image(&self, max_density: f64, buffer: &mut Vec<u8>) {
