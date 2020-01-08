@@ -6,15 +6,15 @@ use rust_fluid::solid::SolidBody;
 extern crate image;
 
 fn main() {
-    let width = 256;
-    let height = 256;
+    let width = 128;
+    let height = 128;
 
     let mut buffer = vec![0u8; width * height * 4];
 
     let mut bodies = Vec::new();
-    bodies.push(SolidBody::new_box(0.5, 0.6, 0.7, 0.1, std::f64::consts::FRAC_PI_4, 0.0, 0.0, std::f64::consts::FRAC_PI_4));
+    bodies.push(SolidBody::new_box(0.5, 0.6, 0.7, 0.1, std::f64::consts::FRAC_PI_4, 0.0, 0.0, 0.0));
 
-    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 256.0, 0.1, bodies)
+    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 128.0, 0.1, bodies)
         .integration(integration::Integration::BogackiShampine)
         .linear_solver(linear_solvers::LinearSolver::ConjugateGradient {
             auxiliary: vec![0.0; width * height],

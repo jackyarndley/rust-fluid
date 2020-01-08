@@ -1,12 +1,15 @@
 use crate::util::helper::{cubic_pulse, length, max, min};
 use std::mem::swap;
 use crate::solid::SolidBody;
+use crate::util::occupancy::occupancy;
 
 pub struct FluidQuantity {
     pub src: Vec<f64>,
     pub dst: Vec<f64>,
     pub normal_x:  Vec<f64>,
     pub normal_y:  Vec<f64>,
+    pub phi:       Vec<f64>,
+    pub volume:    Vec<f64>,
     pub cell: Vec<u8>,
     pub body: Vec<u8>,
     pub mask: Vec<u8>,
@@ -24,6 +27,8 @@ impl FluidQuantity {
             dst: vec![0.0; rows * columns],
             normal_x: vec![0.0; rows * columns],
             normal_y: vec![0.0; rows * columns],
+            phi: vec![0.0; (rows + 1) * (columns + 1)],
+            volume: vec![0.0; rows * columns],
             cell: vec![0u8; rows * columns],
             body: vec![0u8; rows * columns],
             mask: vec![0u8; rows * columns],
@@ -91,6 +96,14 @@ impl FluidQuantity {
         &mut self.normal_y[row * self.columns + column]
     }
 
+    pub fn volume_at(&self, row: usize, column: usize) -> f64 {
+        self.volume[row * self.columns + column]
+    }
+
+    pub fn volume_at_mut(&mut self, row: usize, column: usize) -> &mut f64 {
+        &mut self.volume[row * self.columns + column]
+    }
+
     pub fn swap_buffers(&mut self) {
         swap(&mut self.src, &mut self.dst);
     }
@@ -118,37 +131,61 @@ impl FluidQuantity {
     }
 
     pub fn fill_solid_fields(&mut self, bodies: &Vec<SolidBody>) {
-        if bodies.is_empty() {
-            return;
-        }
+        if !bodies.is_empty() {
+            for row in 0..(self.rows + 1) {
+                for column in 0..(self.columns + 1) {
+                    let x = (column as f64 + self.x_offset - 0.5) * self.cell_size;
+                    let y = (row as f64 + self.y_offset - 0.5) * self.cell_size;
 
-        for row in 0..self.rows {
-            for column in 0..self.columns {
-                let x = (column as f64 + self.x_offset) * self.cell_size;
-                let y = (row as f64 + self.y_offset) * self.cell_size;
-
-                *self.body_at_mut(row, column) = 0;
-                let mut d = bodies[0].distance(x, y);
-                for index in 1..bodies.len() {
-                    let id = bodies[index].distance(x, y);
-
-                    if id < d {
-                        // Note here that if there are more than 256 objects there will be errors
-                        *self.body_at_mut(row, column) = index as u8;
-                        d = id;
+                    self.phi[column + row * (self.columns + 1)] = bodies[0].distance(x, y);
+                    for index in 1..bodies.len() {
+                        self.phi[column + row * (self.columns + 1)] = min(bodies[0].distance(x, y), bodies[index].distance(x, y));
                     }
                 }
+            }
 
-                if d < 0.0 {
-                    *self.cell_at_mut(row, column) = 1;
-                } else {
-                    *self.cell_at_mut(row, column) = 0;
+            for row in 0..self.rows {
+                for column in 0..self.columns {
+                    let x = (column as f64 + self.x_offset) * self.cell_size;
+                    let y = (row as f64 + self.y_offset) * self.cell_size;
+
+                    *self.body_at_mut(row, column) = 0;
+                    let mut d = bodies[0].distance(x, y);
+                    for index in 1..bodies.len() {
+                        let id = bodies[index].distance(x, y);
+
+                        if id < d {
+                            // Note here that if there are more than 256 objects there will be errors
+                            *self.body_at_mut(row, column) = index as u8;
+                            d = id;
+                        }
+                    }
+
+                    let idxp = column + row * (self.columns + 1);
+                    self.volume[column + row * self.columns] = 1.0 - occupancy(self.phi[idxp], self.phi[idxp + 1], self.phi[idxp + self.columns + 1], self.phi[idxp + self.columns + 2]);
+
+                    if self.volume[column + row * self.columns] < 0.01 {
+                        self.volume[column + row * self.columns] = 0.0;
+                    }
+
+                    // This needs to be refactored
+                    let output = bodies[self.body_at(row, column) as usize].distance_normal(x, y);
+                    *self.normal_x_at_mut(row, column) = output.0;
+                    *self.normal_y_at_mut(row, column) = output.1;
+
+                    if self.volume[column + row * self.columns] == 0.0 {
+                        *self.cell_at_mut(row, column) = 1;
+                    } else {
+                        *self.cell_at_mut(row, column) = 0;
+                    }
                 }
+            }
 
-                // This needs to be refactored
-                let output = bodies[self.body_at(row, column) as usize].distance_normal(x, y);
-                *self.normal_x_at_mut(row, column) = output.0;
-                *self.normal_y_at_mut(row, column) = output.1;
+            for row in 0..(self.rows) {
+
+                for column in 0..(self.columns) {
+
+                }
             }
         }
     }

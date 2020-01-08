@@ -104,15 +104,36 @@ impl FluidSolver {
             for column in 0..self.columns {
                 if self.density.cell_at(row, column) == 0 {
                     // Get x and x+1 velocities
-                    let u1 = self.u_velocity.at(row, column);
-                    let u2 = self.u_velocity.at(row, column + 1);
+                    let u1 = self.u_velocity.at(row, column) * self.u_velocity.volume_at(row, column);
+                    let u2 = self.u_velocity.at(row, column + 1) * self.u_velocity.volume_at(row, column + 1);
 
                     // Get y and y+1 velocities
-                    let v1 = self.v_velocity.at(row, column);
-                    let v2 = self.v_velocity.at(row + 1, column);
+                    let v1 = self.v_velocity.at(row, column) * self.v_velocity.volume_at(row, column);
+                    let v2 = self.v_velocity.at(row + 1, column) * self.v_velocity.volume_at(row + 1, column);
 
                     // Factor in cell scale and invert for solving
                     self.residual[row * self.columns + column] = -1.0 * (u2 - u1 + v2 - v1) / self.cell_size;
+
+                    if !self.bodies.is_empty() {
+                        let vol = self.density.volume_at(row, column);
+                        let index = row * self.columns + column;
+
+                        if column > 0 {
+                            self.residual[index] -= (self.u_velocity.volume_at(row, column) - vol) * self.bodies[self.density.body_at(row, column - 1) as usize].velocity_x(column as f64 * self.cell_size, (row as f64 + 0.5) * self.cell_size);
+                        }
+
+                        if row > 0 {
+                            self.residual[index] -= (self.v_velocity.volume_at(row, column) - vol) * self.bodies[self.density.body_at(row - 1, column) as usize].velocity_y((column as f64 + 0.5) * self.cell_size, row as f64 * self.cell_size);
+                        }
+
+                        if column < self.columns - 1 {
+                            self.residual[index] += (self.u_velocity.volume_at(row, column + 1) - vol) * self.bodies[self.density.body_at(row, column + 1) as usize].velocity_x((column as f64 + 1.0) * self.cell_size, (row as f64 + 0.5) * self.cell_size);
+                        }
+
+                        if row < self.rows - 1 {
+                            self.residual[index] += (self.v_velocity.volume_at(row + 1, column) - vol) * self.bodies[self.density.body_at(row + 1, column) as usize].velocity_y((column as f64 + 0.5) * self.cell_size, (row as f64 + 1.0) * self.cell_size);
+                        }
+                    }
                 } else {
                     self.residual[row * self.columns + column] = 0.0;
                 }
@@ -123,7 +144,7 @@ impl FluidSolver {
 
     // Solves pressure array based on divergence, passed to linear solver function
     fn solve_pressure(&mut self) {
-        self.linear_solver.solve(&mut self.pressure, &mut self.residual, &self.density.cell, self.fluid_density, self.timestep, self.cell_size, self.rows, self.columns);
+        self.linear_solver.solve(&mut self.pressure, &mut self.residual, &self.density.cell, self.fluid_density, self.timestep, self.cell_size, self.rows, self.columns, &self.u_velocity, &self.v_velocity);
     }
 
     // Applies computed pressure field to the xy velocity vector field
