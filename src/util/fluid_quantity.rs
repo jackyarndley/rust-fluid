@@ -180,13 +180,6 @@ impl FluidQuantity {
                     }
                 }
             }
-
-            for row in 0..(self.rows) {
-
-                for column in 0..(self.columns) {
-
-                }
-            }
         }
     }
 

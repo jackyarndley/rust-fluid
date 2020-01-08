@@ -13,8 +13,9 @@ fn main() {
 
     let mut bodies = Vec::new();
     bodies.push(SolidBody::new_box(0.5, 0.6, 0.7, 0.1, std::f64::consts::FRAC_PI_4, 0.0, 0.0, 0.0));
+    bodies.push(SolidBody::new_sphere(0.3, 0.5, 0.2, 0.0, 0.0, 0.0, 0.0));
 
-    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 128.0, 0.1, bodies)
+    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 512.0, 0.1, bodies)
         .integration(integration::Integration::BogackiShampine)
         .linear_solver(linear_solvers::LinearSolver::ConjugateGradient {
             auxiliary: vec![0.0; width * height],

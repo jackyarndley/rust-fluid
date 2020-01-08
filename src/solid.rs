@@ -97,7 +97,7 @@ impl SolidBody {
                 }
             },
             SolidType::Sphere => {
-                length(x - self.pos_x, y - self.pos_y)
+                length(x - self.pos_x, y - self.pos_y) - self.scale_x * 0.5
             }
         }
     }
