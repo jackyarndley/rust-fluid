@@ -1,6 +1,6 @@
 # rust-fluid
 ## Overview
-Implementation of a 2-dimensional MIC (marker in cell) fluid solver in Rust. A variety of different implementations of the code algorithms are presented and easily changed to customise the solving method.
+Implementation of a 2-dimensional MAC (marker and cell) fluid solver in Rust. A variety of different implementations of the code algorithms are presented and easily changed to customise the solving method.
 
 ## Usage
 Currently, the primary method of modifying the scene and parameters of the simulation is by modifying the source code. This is done using the main.rs file. An example scene is already provided.
