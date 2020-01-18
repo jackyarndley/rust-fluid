@@ -132,7 +132,7 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
 
     let mut sigma = dot_product(auxiliary, residual);
 
-    for iteration in 0..limit {
+    for _iteration in 0..limit {
         matrix_vector_product(auxiliary, search, a, rows, columns);
 
         let alpha = sigma / dot_product(auxiliary, search);
@@ -142,8 +142,7 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
 
         max_error = infinity_norm(residual);
 
-        if max_error < 1e-5 {
-            println!("{} solver iterations, delta {}", iteration, max_error);
+        if max_error < 1e-4 {
             return;
         }
 
@@ -153,5 +152,5 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
         scaled_add2(search, auxiliary, sigma_new / sigma);
         sigma = sigma_new;
     }
-    println!("Exceeded budget of {} iterations, maximum change was {}", limit, max_error)
+    println!("Solver exceeded budget of {} iterations, maximum change was {}", limit, max_error)
 }

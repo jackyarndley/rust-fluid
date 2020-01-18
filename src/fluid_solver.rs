@@ -3,17 +3,25 @@ use crate::integration::Integration;
 use crate::advection::Advection;
 use crate::util::fluid_quantity::FluidQuantity;
 use crate::interpolation::Interpolation;
-use crate::solid::SolidBody;
+use crate::boundary::SolidBody;
 use crate::util::helper::{max, min};
+use crate::util::sparse::Sparse;
+
+use std::time::Instant;
 
 pub struct FluidSolver {
-    pub u_velocity: FluidQuantity,
-    pub v_velocity: FluidQuantity,
-    pub density: FluidQuantity,
+    pub u_velocity:     FluidQuantity,
+    pub v_velocity:     FluidQuantity,
+    pub density:        FluidQuantity,
     pub rows:           usize,
     pub columns:        usize,
     pressure:           Vec<f64>,
     residual:           Vec<f64>,
+    auxiliary:          Vec<f64>,
+    search:             Vec<f64>,
+    preconditioner:     Vec<f64>,
+    a:                  Sparse,
+    iterations:         usize,
     timestep:           f64,
     cell_size:          f64,
     fluid_density:      f64,
@@ -35,12 +43,15 @@ impl FluidSolver {
             columns,
             pressure:       vec![0.0; rows * columns],
             residual:       vec![0.0; rows * columns],
+            auxiliary:      vec![0.0; rows * columns],
+            search:         vec![0.0; rows * columns],
+            preconditioner: vec![0.0; rows * columns],
+            a:              Sparse::new(rows * columns),
+            iterations:     600,
             timestep,
             cell_size,
             fluid_density,
-            linear_solver:  LinearSolver::GaussSiedel {
-                iterations: 600
-            },
+            linear_solver:  LinearSolver::GaussSiedel,
             integration:    Integration::BogackiShampine,
             interpolation:  Interpolation::BiLinear,
             advection:      Advection::SemiLagrangian,
@@ -144,7 +155,23 @@ impl FluidSolver {
 
     // Solves pressure array based on divergence, passed to linear solver function
     fn solve_pressure(&mut self) {
-        self.linear_solver.solve(&mut self.pressure, &mut self.residual, &self.density.cell, self.fluid_density, self.timestep, self.cell_size, self.rows, self.columns, &self.u_velocity, &self.v_velocity);
+        let pressure_time = Instant::now();
+        self.linear_solver.solve(&mut self.pressure,
+                                 &mut self.residual,
+                                 &mut self.auxiliary,
+                                 &mut self.search,
+                                 &mut self.preconditioner,
+                                 &mut self.a,
+                                 &self.density.cell,
+                                 self.fluid_density,
+                                 self.timestep,
+                                 self.cell_size,
+                                 self.rows,
+                                 self.columns,
+                                 self.iterations,
+                                 &self.u_velocity,
+                                 &self.v_velocity);
+        print!("solve: {} ms, ", pressure_time.elapsed().as_millis())
     }
 
     // Applies computed pressure field to the xy velocity vector field
@@ -177,11 +204,14 @@ impl FluidSolver {
 
     // Advection method moves density scalar field through velocity vector field to produce output
     fn advect(&mut self) {
+        let advect_time = Instant::now();
         self.advection.advect(&mut self.u_velocity, &mut self.v_velocity, &mut self.density, self.timestep, &self.interpolation, &self.integration);
+        print!("advect: {} ms, ", advect_time.elapsed().as_millis())
     }
 
     // Produces the next frame of the simulation by projecting then advecting
     pub fn update(&mut self) {
+        let total_time = Instant::now();
         for body in &mut self.bodies {
             body.update(self.timestep);
         }
@@ -194,6 +224,7 @@ impl FluidSolver {
         self.project();
         self.set_boundaries();
         self.advect();
+        println!("total: {} ms", total_time.elapsed().as_millis())
     }
 
     pub fn add_inflow(&mut self, x: f64, y: f64, width: f64, height: f64, density: f64, u_velocity: f64, v_velocity: f64) {

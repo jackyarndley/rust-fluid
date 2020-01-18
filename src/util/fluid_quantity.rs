@@ -1,6 +1,6 @@
 use crate::util::helper::{cubic_pulse, length, max, min};
 use std::mem::swap;
-use crate::solid::SolidBody;
+use crate::boundary::SolidBody;
 use crate::util::occupancy::occupancy;
 
 pub struct FluidQuantity {
