@@ -5,13 +5,13 @@ use rust_fluid::boundary::SolidBody;
 extern crate image;
 
 fn main() {
-    let width = 500;
+    let width = 400;
     let height = 200;
 
     let mut buffer = vec![0u8; width * height * 4];
 
     let mut bodies = Vec::new();
-    bodies.push(SolidBody::new_box(2.0, 0.7, 0.6, 0.2, std::f64::consts::FRAC_PI_4, 0.0, 0.0, 0.0));
+    bodies.push(SolidBody::new_box(1.5, 0.7, 0.6, 0.2, std::f64::consts::FRAC_PI_4, 0.0, 0.0, 0.0));
     bodies.push(SolidBody::new_sphere(0.5, 0.5, 0.2, 0.0, 0.0, 0.0, 0.0));
 
     let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 200.0, 0.1, bodies)
