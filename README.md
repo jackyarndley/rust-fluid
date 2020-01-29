@@ -1,7 +1,6 @@
 ![rust-fluid](examples/image.png)
 
 # rust-fluid
-## Overview
 Implementation of a 2-dimensional MAC (marker and cell) fluid solver in Rust. A variety of core algorithms are implemented and can be easily changed and swapped out to customise the solving method.
 
 ## Usage
