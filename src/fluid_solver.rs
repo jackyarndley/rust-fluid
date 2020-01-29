@@ -171,7 +171,7 @@ impl FluidSolver {
                                  self.iterations,
                                  &self.u_velocity,
                                  &self.v_velocity);
-        print!("solve: {} ms, ", pressure_time.elapsed().as_millis())
+        print!("Linear Solve: {} ms, ", pressure_time.elapsed().as_millis())
     }
 
     // Applies computed pressure field to the xy velocity vector field
@@ -206,7 +206,7 @@ impl FluidSolver {
     fn advect(&mut self) {
         let advect_time = Instant::now();
         self.advection.advect(&mut self.u_velocity, &mut self.v_velocity, &mut self.density, self.timestep, &self.interpolation, &self.integration);
-        print!("advect: {} ms, ", advect_time.elapsed().as_millis())
+        print!("Advection: {} ms, ", advect_time.elapsed().as_millis())
     }
 
     // Produces the next frame of the simulation by projecting then advecting
@@ -224,7 +224,7 @@ impl FluidSolver {
         self.project();
         self.set_boundaries();
         self.advect();
-        println!("total: {} ms", total_time.elapsed().as_millis())
+        println!("Total: {} ms", total_time.elapsed().as_millis())
     }
 
     pub fn add_inflow(&mut self, x: f64, y: f64, width: f64, height: f64, density: f64, u_velocity: f64, v_velocity: f64) {
@@ -243,10 +243,9 @@ impl FluidSolver {
                 shade = 0;
             }
 
-            buffer[i * 4 + 0] = shade;
-            buffer[i * 4 + 1] = shade;
-            buffer[i * 4 + 2] = shade;
-            buffer[i * 4 + 3] = 0xFF; // Alpha is 255
+            buffer[i * 3 + 0] = shade;
+            buffer[i * 3 + 1] = shade;
+            buffer[i * 3 + 2] = shade;
         }
     }
 }
