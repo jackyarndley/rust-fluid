@@ -9,8 +9,5 @@ Currently, the primary method of modifying the scene and parameters of the simul
 
 The output files are placed in the ```/output``` directory. This directory must be created prior to running the solver.
 
-## Structure
-This project has been structured to keep all the seperate all of the different components.
-
 ## Resources
 - [incremental-fluids](https://github.com/tunabrain/incremental-fluids) provided comprehensive documentation and implementations of the algorithms used in this project.
