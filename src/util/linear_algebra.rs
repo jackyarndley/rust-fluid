@@ -45,7 +45,8 @@ pub fn scaled_add1(dst: &mut Vec<f64>, b: &Vec<f64>, s: f64) {
 
 pub fn scaled_add2(dst: &mut Vec<f64>, a: &Vec<f64>,  s: f64) {
     for element in 0..dst.len() {
-        dst[element] = a[element] + dst[element] * s;
+        dst[element] *= s;
+        dst[element] += a[element];
     }
 }
 

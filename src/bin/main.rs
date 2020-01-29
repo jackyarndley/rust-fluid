@@ -6,15 +6,15 @@ extern crate image;
 
 fn main() {
     let width = 800;
-    let height = 400;
+    let height = 300;
 
     let mut buffer = vec![0u8; width * height * 3];
 
     let mut bodies = Vec::new();
-    bodies.push(SolidBody::new_box(1.5, 0.7, 0.6, 0.2, std::f64::consts::FRAC_PI_4, 0.0, 0.0, 0.0));
-    bodies.push(SolidBody::new_sphere(0.46, 0.5, 0.2, 0.0, 0.0, 0.0, 0.0));
+    bodies.push(SolidBody::new_box(1.25, 0.6, 0.6, 0.2, std::f64::consts::FRAC_PI_4, 0.0, 0.0, 0.0));
+    bodies.push(SolidBody::new_sphere(0.35, 0.5, 0.2, 0.0, 0.0, 0.0, 0.0));
 
-    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 400.0, 0.1, bodies)
+    let mut solver = FluidSolver::new(height, width, 0.005, 1.0 / 300.0, 0.1, bodies)
         .integration(integration::Integration::BogackiShampine)
         .linear_solver(linear_solvers::LinearSolver::ConjugateGradient)
         .advection(advection::Advection::SemiLagrangian);

@@ -126,7 +126,7 @@ pub fn conjugate_gradient(pressure: &mut Vec<f64>,
 
     let mut max_error = infinity_norm(residual);
 
-    if max_error < 1e-5 {
+    if max_error < 1e-4 {
         return;
     }
 
